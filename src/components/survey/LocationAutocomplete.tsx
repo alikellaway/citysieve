@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback } from "react";
+import { useState, useEffect, useRef } from "react";
 import type { GeoLocation } from "@/lib/survey/types";
 import { useDebounce } from "@/hooks/useDebounce";
 import { Input } from "@/components/ui/input";
@@ -29,28 +29,37 @@ export function LocationAutocomplete({
   const [results, setResults] = useState<SearchResult[]>([]);
   const [isSearching, setIsSearching] = useState(false);
   const [showDropdown, setShowDropdown] = useState(false);
+  const skipSearch = useRef(false);
 
-  const search = useCallback(async (q: string) => {
-    if (q.length < 3) {
+  const debouncedQuery = useDebounce(query, 400);
+
+  useEffect(() => {
+    if (skipSearch.current) {
+      skipSearch.current = false;
+      return;
+    }
+    if (debouncedQuery.length < 3) {
       setResults([]);
       return;
     }
+    let cancelled = false;
     setIsSearching(true);
-    try {
-      const res = await fetch(
-        `/api/geocode?q=${encodeURIComponent(q)}`
-      );
-      const data: SearchResult[] = await res.json();
-      setResults(data);
-      setShowDropdown(true);
-    } catch {
-      setResults([]);
-    } finally {
-      setIsSearching(false);
-    }
-  }, []);
-
-  const debouncedSearch = useDebounce(search, 400);
+    fetch(`/api/geocode?q=${encodeURIComponent(debouncedQuery)}`)
+      .then((res) => res.json())
+      .then((data: SearchResult[]) => {
+        if (!cancelled) {
+          setResults(data);
+          setShowDropdown(true);
+        }
+      })
+      .catch(() => {
+        if (!cancelled) setResults([]);
+      })
+      .finally(() => {
+        if (!cancelled) setIsSearching(false);
+      });
+    return () => { cancelled = true; };
+  }, [debouncedQuery]);
 
   function handleInputChange(e: React.ChangeEvent<HTMLInputElement>) {
     const val = e.target.value;
@@ -59,8 +68,6 @@ export function LocationAutocomplete({
       setResults([]);
       setShowDropdown(false);
       if (value) onChange(null);
-    } else {
-      debouncedSearch(val);
     }
   }
 
@@ -71,12 +78,14 @@ export function LocationAutocomplete({
       lng: parseFloat(result.lon),
     };
     onChange(loc);
+    skipSearch.current = true;
     setQuery(result.display_name);
     setShowDropdown(false);
     setResults([]);
   }
 
   function handleClear() {
+    skipSearch.current = true;
     setQuery("");
     onChange(null);
     setResults([]);
