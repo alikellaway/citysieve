@@ -70,7 +70,8 @@ type SurveyAction =
   | { type: 'UPDATE_TRANSPORT'; payload: Partial<TransportStep> }
   | { type: 'UPDATE_ENVIRONMENT'; payload: Partial<EnvironmentStep> }
   | { type: 'SET_STEP'; payload: number }
-  | { type: 'RESET' };
+  | { type: 'RESET' }
+  | { type: 'LOAD_STATE'; payload: SurveyState };
 
 function surveyReducer(state: SurveyState, action: SurveyAction): SurveyState {
   switch (action.type) {
@@ -90,6 +91,8 @@ function surveyReducer(state: SurveyState, action: SurveyAction): SurveyState {
       return { ...state, currentStep: action.payload };
     case 'RESET':
       return { ...initialState };
+    case 'LOAD_STATE':
+      return { ...action.payload };
     default:
       return state;
   }

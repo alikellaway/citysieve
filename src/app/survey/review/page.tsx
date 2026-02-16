@@ -1,6 +1,7 @@
 'use client';
 
 import { useRouter } from 'next/navigation';
+import { useSession, signIn } from 'next-auth/react';
 import { useSurvey } from '@/hooks/useSurvey';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -91,13 +92,13 @@ function SectionCard({
 
 export default function ReviewPage() {
   const { state } = useSurvey();
+  const { data: session } = useSession();
   const router = useRouter();
   const { profile, commute, family, lifestyle, transport, environment } =
     state as SurveyState;
 
   return (
     <div className="mx-auto max-w-2xl px-4 py-6">
-      <h1 className="mb-2 text-2xl font-bold text-primary">CitySeive</h1>
       <h2 className="mb-6 text-lg text-muted-foreground">
         Review your answers
       </h2>
@@ -250,6 +251,21 @@ export default function ReviewPage() {
           </div>
         </SectionCard>
       </div>
+
+      {!session && (
+        <div className="mt-6 rounded-lg border border-dashed border-primary/30 bg-primary/5 p-4 text-center">
+          <p className="text-sm text-muted-foreground">
+            <button
+              type="button"
+              onClick={() => signIn('google')}
+              className="font-medium text-primary hover:underline"
+            >
+              Sign in
+            </button>
+            {' '}to save your survey and revisit results later.
+          </p>
+        </div>
+      )}
 
       <div className="mt-8 flex justify-center">
         <Button size="lg" onClick={() => router.push('/results')}>

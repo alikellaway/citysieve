@@ -1,19 +1,12 @@
 import Link from "next/link";
+import { SiteHeader } from "@/components/layout/SiteHeader";
+import { AdSlot } from "@/components/ads/AdSlot";
+import { DonateButton } from "@/components/donate/DonateButton";
 
 export default function HomePage() {
   return (
     <div className="flex min-h-screen flex-col">
-      <header className="border-b">
-        <div className="mx-auto flex max-w-5xl items-center justify-between px-4 py-4">
-          <h1 className="text-2xl font-bold text-primary">CitySeive</h1>
-          <Link
-            href="/survey/profile"
-            className="rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90"
-          >
-            Start Survey
-          </Link>
-        </div>
-      </header>
+      <SiteHeader />
 
       <main className="flex flex-1 flex-col items-center justify-center px-4">
         <div className="mx-auto max-w-3xl text-center">
@@ -43,7 +36,9 @@ export default function HomePage() {
           </div>
         </div>
 
-        <section id="how-it-works" className="mx-auto mt-24 max-w-4xl px-4 pb-16">
+        <AdSlot size="leaderboard" className="mt-12" />
+
+        <section id="how-it-works" className="mx-auto mt-12 max-w-4xl px-4 pb-16">
           <h3 className="mb-12 text-center text-2xl font-bold">
             How it works
           </h3>
@@ -82,8 +77,13 @@ export default function HomePage() {
         </section>
       </main>
 
-      <footer className="border-t py-6 text-center text-sm text-muted-foreground">
-        CitySeive — Open source, powered by OpenStreetMap data
+      <footer className="border-t py-6">
+        <div className="mx-auto flex max-w-5xl flex-col items-center gap-4 px-4">
+          <DonateButton />
+          <p className="text-sm text-muted-foreground">
+            CitySeive — Open source, powered by OpenStreetMap data
+          </p>
+        </div>
       </footer>
     </div>
   );

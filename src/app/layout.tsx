@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { SessionProvider } from "@/components/providers/SessionProvider";
 import { SurveyProvider } from "@/lib/survey/context";
 import "@/styles/globals.css";
 
@@ -16,7 +17,9 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body className="min-h-screen bg-background font-sans antialiased">
-        <SurveyProvider>{children}</SurveyProvider>
+        <SessionProvider>
+          <SurveyProvider>{children}</SurveyProvider>
+        </SessionProvider>
       </body>
     </html>
   );

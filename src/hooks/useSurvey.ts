@@ -3,6 +3,7 @@
 import { useCallback } from 'react';
 import { useSurveyContext } from '@/lib/survey/context';
 import type {
+  SurveyState,
   ProfileStep,
   CommuteStep,
   FamilyStep,
@@ -54,6 +55,11 @@ export function useSurvey() {
     [dispatch]
   );
 
+  const loadState = useCallback(
+    (fullState: SurveyState) => dispatch({ type: 'LOAD_STATE', payload: fullState }),
+    [dispatch]
+  );
+
   return {
     state,
     updateProfile,
@@ -64,5 +70,6 @@ export function useSurvey() {
     updateEnvironment,
     setStep,
     reset,
+    loadState,
   };
 }

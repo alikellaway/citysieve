@@ -1,13 +1,18 @@
 'use client';
 
 import { useEffect, useState, useCallback, useRef } from 'react';
+import React from 'react';
 import dynamic from 'next/dynamic';
 import { useRouter } from 'next/navigation';
+import { useSession } from 'next-auth/react';
 import { useSurvey } from '@/hooks/useSurvey';
 import { generateCandidateAreas } from '@/lib/data/area-generator';
 import { bestCommuteTime } from '@/lib/scoring/commute';
 import { scoreAndRankAreas, type AreaProfile, type ScoredArea } from '@/lib/scoring/engine';
 import { ResultCard } from '@/components/results/ResultCard';
+import { AdSlot } from '@/components/ads/AdSlot';
+import { DonateButton } from '@/components/donate/DonateButton';
+import { SiteHeader } from '@/components/layout/SiteHeader';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 
@@ -32,12 +37,14 @@ function classifyAreaType(distKm: number): AreaProfile['environment']['type'] {
 
 export default function ResultsPage() {
   const { state, reset } = useSurvey();
+  const { data: session } = useSession();
   const router = useRouter();
   const [results, setResults] = useState<ScoredArea[]>([]);
   const [loading, setLoading] = useState(true);
   const [progress, setProgress] = useState({ done: 0, total: 0 });
   const [error, setError] = useState<string | null>(null);
   const [activeIndex, setActiveIndex] = useState<number | null>(null);
+  const [saved, setSaved] = useState(false);
   const cardRefs = useRef<(HTMLDivElement | null)[]>([]);
   const hasRun = useRef(false);
 
@@ -155,9 +162,22 @@ export default function ResultsPage() {
     router.push('/');
   }
 
+  async function handleSave() {
+    await fetch('/api/survey/save', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        state,
+        label: `Survey — ${new Date().toLocaleDateString()}`,
+      }),
+    });
+    setSaved(true);
+  }
+
   return (
-    <div className="mx-auto max-w-5xl px-4 py-6">
-      <h1 className="mb-2 text-2xl font-bold text-primary">CitySeive</h1>
+    <div>
+      <SiteHeader />
+      <div className="mx-auto max-w-5xl px-4 py-6">
       <h2 className="mb-6 text-lg text-muted-foreground">Your Results</h2>
 
       {loading && (
@@ -212,27 +232,40 @@ export default function ResultsPage() {
           {/* Result Cards */}
           <div className="space-y-3">
             {results.map((result, i) => (
-              <div
-                key={result.area.id}
-                ref={(el) => { cardRefs.current[i] = el; }}
-              >
-                <ResultCard
-                  result={result}
-                  rank={i + 1}
-                  isActive={i === activeIndex}
-                  onClick={() => handleCardClick(i)}
-                />
-              </div>
+              <React.Fragment key={result.area.id}>
+                <div ref={(el) => { cardRefs.current[i] = el; }}>
+                  <ResultCard
+                    result={result}
+                    rank={i + 1}
+                    isActive={i === activeIndex}
+                    onClick={() => handleCardClick(i)}
+                  />
+                </div>
+                {(i + 1) % 3 === 0 && i < results.length - 1 && (
+                  <AdSlot size="banner" />
+                )}
+              </React.Fragment>
             ))}
           </div>
 
-          <div className="flex justify-center pt-4">
+          <div className="flex flex-col items-center gap-4 pt-4">
+            {session && (
+              <Button
+                variant="outline"
+                onClick={handleSave}
+                disabled={saved}
+              >
+                {saved ? 'Saved' : 'Save Results'}
+              </Button>
+            )}
             <Button variant="outline" onClick={handleStartOver}>
               Start Over
             </Button>
+            <DonateButton />
           </div>
         </div>
       )}
+      </div>
     </div>
   );
 }
