@@ -42,5 +42,10 @@ next-env.d.ts
 # prisma
 prisma/dev.db
 prisma/dev.db-journal
+dev.db
+dev.db-journal
+
+# claude code
+.claude/
 
 /src/generated/prisma
