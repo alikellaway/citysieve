@@ -11,7 +11,7 @@ import type {
   EnvironmentStep,
 } from './types';
 
-const STORAGE_KEY = 'cityseive-survey-state';
+const STORAGE_KEY = 'citysieve-survey-state';
 
 const initialState: SurveyState = {
   profile: {

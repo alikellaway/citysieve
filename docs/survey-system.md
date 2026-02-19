@@ -27,7 +27,7 @@ All types used across the app are defined here. Read this file first when workin
 
 ## State management (`src/lib/survey/context.tsx`)
 
-Uses React Context + `useReducer`. State is initialized from `localStorage` (key: `'cityseive-survey-state'`) and persisted on every change via `useEffect`.
+Uses React Context + `useReducer`. State is initialized from `localStorage` (key: `'citysieve-survey-state'`) and persisted on every change via `useEffect`.
 
 ### Reducer actions
 

@@ -1,4 +1,4 @@
-# CitySeive
+# CitySieve
 
 Next.js 15 app helping users find their ideal neighbourhood by scoring real OpenStreetMap data against lifestyle priorities.
 
@@ -23,7 +23,7 @@ NEXTAUTH_URL=http://localhost:3000
 AUTH_SECRET=<generate with: openssl rand -base64 32>
 GOOGLE_CLIENT_ID=<from Google Cloud Console>
 GOOGLE_CLIENT_SECRET=<from Google Cloud Console>
-NEXT_PUBLIC_BMAC_USERNAME=cityseive
+NEXT_PUBLIC_BMAC_USERNAME=citysieve
 DATABASE_URL=file:./dev.db
 ```
 

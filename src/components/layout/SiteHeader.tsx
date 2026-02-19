@@ -6,7 +6,7 @@ export function SiteHeader() {
     <header className="border-b">
       <div className="mx-auto flex max-w-5xl items-center justify-between px-4 py-4">
         <Link href="/" className="text-2xl font-bold text-primary">
-          CitySeive
+          CitySieve
         </Link>
         <AuthButton />
       </div>

@@ -55,7 +55,7 @@ The survey layout (`src/app/survey/layout.tsx`) adds `SiteHeader` + `ProgressBar
 
 ## Data flow
 
-1. **Survey input** — User fills 6 steps. Each step dispatches partial updates to the survey reducer, which persists state to `localStorage` under key `'cityseive-survey-state'`.
+1. **Survey input** — User fills 6 steps. Each step dispatches partial updates to the survey reducer, which persists state to `localStorage` under key `'citysieve-survey-state'`.
 2. **Area generation** — Results page calls `generateCandidateAreas()` to create a hex grid of candidate points around the user's work or family location.
 3. **Amenity fetch** — Each candidate's amenities are fetched via `/api/overpass` (batched, 4 concurrent). Overpass route caches results in memory (24h TTL, ~500m coordinate rounding).
 4. **Scoring** — `scoreAndRankAreas()` normalizes amenity counts, applies hard filters, extracts weights from survey state, scores each area, and returns top 10.

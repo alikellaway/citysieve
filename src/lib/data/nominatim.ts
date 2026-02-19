@@ -14,7 +14,7 @@ export async function searchLocations(query: string): Promise<NominatimResult[]>
   url.searchParams.set('addressdetails', '1');
 
   const res = await fetch(url.toString(), {
-    headers: { 'User-Agent': 'CitySeive/1.0' },
+    headers: { 'User-Agent': 'CitySieve/1.0' },
   });
 
   if (!res.ok) {

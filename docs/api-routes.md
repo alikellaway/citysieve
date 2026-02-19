@@ -10,7 +10,7 @@ Proxies requests to OpenStreetMap Nominatim.
 - **Query params**: `q` (search string or "lat,lng" for reverse geocoding)
 - **Response**: JSON array of Nominatim results
 - **Caching**: In-memory Map, 24h TTL, keyed by lowercase query
-- **Headers**: Sends `User-Agent: CitySeive/1.0` to Nominatim
+- **Headers**: Sends `User-Agent: CitySieve/1.0` to Nominatim
 
 ## GET /api/overpass
 

@@ -15,7 +15,7 @@ export default function HomePage() {
             <span className="block text-primary">place to live</span>
           </h2>
           <p className="mt-6 text-lg text-muted-foreground sm:text-xl">
-            Choosing where to move is overwhelming. CitySeive takes your
+            Choosing where to move is overwhelming. CitySieve takes your
             priorities — commute, amenities, lifestyle, budget — and
             recommends areas that actually match what matters to you, using
             live data.
@@ -81,7 +81,7 @@ export default function HomePage() {
         <div className="mx-auto flex max-w-5xl flex-col items-center gap-4 px-4">
           <DonateButton />
           <p className="text-sm text-muted-foreground">
-            CitySeive — Open source, powered by OpenStreetMap data
+            CitySieve — Open source, powered by OpenStreetMap data
           </p>
         </div>
       </footer>

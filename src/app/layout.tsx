@@ -4,7 +4,7 @@ import { SurveyProvider } from "@/lib/survey/context";
 import "@/styles/globals.css";
 
 export const metadata: Metadata = {
-  title: "CitySeive — Find Your Perfect Place to Live",
+  title: "CitySieve — Find Your Perfect Place to Live",
   description:
     "Take a quick survey about your priorities and discover the best areas to move to, powered by live data.",
 };

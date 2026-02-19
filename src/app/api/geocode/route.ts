@@ -22,7 +22,7 @@ export async function GET(request: NextRequest) {
   url.searchParams.set('addressdetails', '1');
 
   const res = await fetch(url.toString(), {
-    headers: { 'User-Agent': 'CitySeive/1.0' },
+    headers: { 'User-Agent': 'CitySieve/1.0' },
   });
 
   const data = await res.json();
