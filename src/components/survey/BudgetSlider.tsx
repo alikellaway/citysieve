@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import type { TenureType } from "@/lib/survey/types";
 import { Input } from "@/components/ui/input";
 
@@ -19,6 +20,21 @@ function getBudgetConfig(tenureType: TenureType | null) {
 export function BudgetSlider({ value, onChange, tenureType }: BudgetSliderProps) {
   const config = getBudgetConfig(tenureType);
   const currentValue = value ?? config.min;
+  const [focused, setFocused] = useState(false);
+  const [inputText, setInputText] = useState("");
+
+  function handleFocus() {
+    setFocused(true);
+    setInputText(String(currentValue));
+  }
+
+  function handleBlur() {
+    setFocused(false);
+    const parsed = Number(inputText);
+    if (!isNaN(parsed) && parsed >= config.min && parsed <= config.max) {
+      onChange(parsed);
+    }
+  }
 
   return (
     <div className="space-y-2">
@@ -34,12 +50,11 @@ export function BudgetSlider({ value, onChange, tenureType }: BudgetSliderProps)
           className="h-2 flex-1 cursor-pointer appearance-none rounded-lg bg-muted accent-primary"
         />
         <Input
-          type="number"
-          min={config.min}
-          max={config.max}
-          step={config.step}
-          value={currentValue}
-          onChange={(e) => onChange(Number(e.target.value))}
+          type="text"
+          value={focused ? inputText : config.format(currentValue)}
+          onFocus={handleFocus}
+          onBlur={handleBlur}
+          onChange={(e) => setInputText(e.target.value)}
           className="w-28"
         />
       </div>
