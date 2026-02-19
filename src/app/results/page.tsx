@@ -197,16 +197,38 @@ export default function ResultsPage() {
 
       {loading && (
         <Card>
-          <CardContent className="py-12 text-center">
-            <div className="mx-auto mb-4 h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent" />
-            <p className="text-lg font-medium">Analysing areas...</p>
+          <CardContent className="py-16 text-center">
+            <p className="text-xl font-semibold tracking-tight">Finding your ideal areas</p>
+            <p className="mt-1.5 mb-10 h-5 text-sm text-muted-foreground">
+              {progress.currentName
+                ? `Checking ${progress.currentName}`
+                : progress.total > 0
+                ? 'Starting\u2026'
+                : ''}
+            </p>
             {progress.total > 0 && (
-              <p className="mt-2 text-sm text-muted-foreground">
-                Checked {progress.done} of {progress.total} areas
-                {progress.currentName && (
-                  <><br /><span>Checking {progress.currentName}...</span></>
-                )}
-              </p>
+              <div className="mx-auto max-w-xs space-y-2">
+                <div className="relative">
+                  {/* Track */}
+                  <div className="h-1 w-full overflow-hidden rounded-full bg-secondary">
+                    {/* Fill */}
+                    <div
+                      className="h-full rounded-full bg-gradient-to-r from-indigo-500 to-violet-500 transition-[width] duration-700 ease-out"
+                      style={{ width: `${(progress.done / progress.total) * 100}%` }}
+                    />
+                  </div>
+                  {/* Glowing leading dot */}
+                  {progress.done > 0 && progress.done < progress.total && (
+                    <div
+                      className="absolute top-1/2 h-3 w-3 -translate-x-1/2 -translate-y-1/2 rounded-full bg-violet-500 shadow-[0_0_10px_4px_rgba(139,92,246,0.55)] transition-[left] duration-700 ease-out"
+                      style={{ left: `${(progress.done / progress.total) * 100}%` }}
+                    />
+                  )}
+                </div>
+                <p className="text-right text-xs tabular-nums text-muted-foreground">
+                  {Math.round((progress.done / progress.total) * 100)}%
+                </p>
+              </div>
             )}
           </CardContent>
         </Card>

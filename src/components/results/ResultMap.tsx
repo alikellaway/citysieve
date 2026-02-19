@@ -57,6 +57,7 @@ export function ResultMap({ results, activeIndex, onMarkerClick }: ResultMapProp
   const center = results[0].area.coordinates;
 
   return (
+    <div className="relative z-0">
     <MapContainer
       center={[center.lat, center.lng]}
       zoom={11}
@@ -83,5 +84,6 @@ export function ResultMap({ results, activeIndex, onMarkerClick }: ResultMapProp
         </Marker>
       ))}
     </MapContainer>
+    </div>
   );
 }
