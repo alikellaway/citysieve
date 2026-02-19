@@ -17,7 +17,8 @@ Extends the NextAuth `Session` type so `session.user.id` is typed as `string`.
 
 - `SessionProvider` (`src/components/providers/SessionProvider.tsx`) wraps the app in root layout
 - Use `useSession()` from `next-auth/react` in client components
-- `AuthButton` (`src/components/auth/AuthButton.tsx`) handles sign in/out UI
+- `AuthButton` (`src/components/auth/AuthButton.tsx`) handles sign in/out UI — avatar opens a dropdown with Survey History and Account Settings links
+- `AccountPage` (`src/app/account/page.tsx`) — account settings: read-only profile, emailOptIn toggle, delete account with confirmation dialog
 
 ## Server-side auth
 
@@ -44,7 +45,7 @@ Extends the NextAuth `Session` type so `session.user.id` is typed as `string`.
 
 | Model | Purpose |
 |-------|---------|
-| `User` | User profile (name, email, image). Has many Accounts, Sessions, SavedSurveys |
+| `User` | User profile (name, email, image, emailOptIn). Has many Accounts, Sessions, SavedSurveys |
 | `Account` | OAuth provider link (Google). Unique on `[provider, providerAccountId]` |
 | `Session` | Database session. Unique on `sessionToken` |
 | `VerificationToken` | Email verification (unused currently). Unique on `[identifier, token]` |

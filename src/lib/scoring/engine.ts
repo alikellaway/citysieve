@@ -73,7 +73,6 @@ function scoreArea(
     ['librariesCulture', weights.librariesCulture, area.normalizedAmenities.librariesCulture || 0],
     ['publicTransport', weights.publicTransport, area.transport.busFrequency],
     ['trainStation', weights.trainStation, area.transport.trainStationProximity],
-    ['greenSpaces', weights.greenSpaces, area.environment.greenSpaceCoverage],
     ['peaceAndQuiet', weights.peaceAndQuiet, area.environment.type === 'rural' || area.environment.type === 'town' ? 0.8 : area.environment.type === 'outer_suburb' ? 0.6 : 0.3],
   ];
 

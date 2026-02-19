@@ -16,8 +16,10 @@ All components are in `src/components/`.
 ## Auth
 
 ### `AuthButton` (`auth/AuthButton.tsx`)
-- Shows loading skeleton → signed-in state (avatar + name + sign out) → sign-in button
-- Uses `useSession()`, `signIn('google')`, `signOut()`
+- Shows loading skeleton → signed-in state → sign-in button
+- **Signed-in state**: avatar dropdown trigger + name (hidden on mobile) + Sign out button
+- **Dropdown**: user name/email header label, "Survey History" → `/my-surveys`, "Account Settings" → `/account`
+- Uses `useSession()`, `signIn('google')`, `signOut()`, `useRouter()`
 
 ## Ads
 
@@ -72,5 +74,5 @@ All components are in `src/components/`.
 ## UI primitives (`ui/`)
 
 shadcn/ui components built on Radix + CVA + `cn()`:
-- `badge`, `button`, `card`, `dialog`, `input`, `label`, `progress`, `radio-group`, `select`, `slider`, `toggle-group`, `tooltip`
+- `badge`, `button`, `card`, `dialog`, `dropdown-menu`, `input`, `label`, `progress`, `radio-group`, `select`, `slider`, `toggle-group`, `tooltip`
 - **Do not modify** these unless fixing a bug

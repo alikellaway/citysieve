@@ -67,6 +67,28 @@ Deletes a single saved survey.
 - **Auth**: Required (scoped to user)
 - **Response**: `{ success: true }`
 
+## GET /api/account
+
+Returns account preferences for the authenticated user.
+
+- **Auth**: Required (returns 401 if unauthenticated)
+- **Response**: `{ emailOptIn: boolean }`
+
+## PATCH /api/account
+
+Updates account preferences.
+
+- **Auth**: Required
+- **Body**: `{ emailOptIn: boolean }`
+- **Response**: `{ success: true }`
+
+## DELETE /api/account
+
+Permanently deletes the authenticated user's account (cascades to Account, Session, SavedSurvey rows).
+
+- **Auth**: Required
+- **Response**: `{ success: true }` — client should call `signOut()` on success
+
 ## Auth pattern for survey routes
 
-The middleware at `src/middleware.ts` (`export { auth as middleware }`) attaches the auth session to all `/api/survey/*` routes. Each route then checks `session?.user?.id` and returns 401 if absent. Auth is optional for the survey UI — users can complete the survey and see results without signing in. Auth only gates saving/loading surveys.
+The middleware at `src/middleware.ts` checks for the existence of the `authjs.session-token` cookie on all `/api/survey/*` routes. Each route then calls `await auth()` for the authoritative session check. Auth is optional for the survey UI — users can complete the survey and see results without signing in. Auth only gates saving/loading surveys.

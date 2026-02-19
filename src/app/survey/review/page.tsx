@@ -218,10 +218,6 @@ export default function ReviewPage() {
             value={likert(environment.peaceAndQuiet)}
           />
           <ReviewItem
-            label="Green spaces"
-            value={likert(environment.greenSpaces)}
-          />
-          <ReviewItem
             label="New development"
             value={label('developmentFeeling', environment.developmentFeeling)}
           />
