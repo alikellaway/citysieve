@@ -11,7 +11,7 @@ interface BudgetSliderProps {
 
 function getBudgetConfig(tenureType: TenureType | null) {
   if (tenureType === "buy") {
-    return { min: 50000, max: 2000000, step: 10000, label: "Total budget (purchase)", format: (v: number) => `£${(v / 1000).toFixed(0)}k` };
+    return { min: 50000, max: 2000000, step: 10000, label: "Total budget (purchase)", format: (v: number) => v >= 1000000 ? `£${(v / 1000000).toFixed(v % 1000000 === 0 ? 0 : 1)}M` : `£${(v / 1000).toFixed(0)}k` };
   }
   return { min: 200, max: 5000, step: 50, label: "Monthly budget (rent)", format: (v: number) => `£${v}/mo` };
 }
