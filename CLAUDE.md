@@ -3,7 +3,7 @@
 Next.js 15 app helping users find their ideal neighbourhood by scoring real OpenStreetMap data against lifestyle priorities.
 
 **Status**: MVP feature-complete — 6 survey steps, results page with Leaflet map, Google OAuth, survey saving, placeholder ad slots, Buy Me a Coffee button.
-**Tech**: Next.js 15 (App Router, React 19), TypeScript, Tailwind, Prisma + SQLite, NextAuth v5, Leaflet, Zod, Radix/shadcn UI.
+**Tech**: Next.js 15 (App Router, React 19), TypeScript, Tailwind, Prisma 7 + SQLite (via libsql adapter), NextAuth v5, Leaflet, Zod, Radix/shadcn UI.
 
 ## Commands
 
@@ -20,7 +20,7 @@ npx prisma studio       # Database GUI
 
 ```
 NEXTAUTH_URL=http://localhost:3000
-NEXTAUTH_SECRET=<generate with: openssl rand -base64 32>
+AUTH_SECRET=<generate with: openssl rand -base64 32>
 GOOGLE_CLIENT_ID=<from Google Cloud Console>
 GOOGLE_CLIENT_SECRET=<from Google Cloud Console>
 NEXT_PUBLIC_BMAC_USERNAME=cityseive
@@ -34,7 +34,7 @@ DATABASE_URL=file:./dev.db
 3. **Overpass route caches in memory** — 24h TTL, keyed by rounded coordinates (~500m precision).
 4. **`useDebounce` debounces a value**, not a callback. `LocationAutocomplete` debounces the query string.
 5. **Type enums are string unions**, not TS `enum`s — defined in `src/lib/survey/types.ts`.
-6. **Prisma client is generated to `src/generated/prisma/`** — import from `@/generated/prisma`. Run `npx prisma generate` after schema changes.
+6. **Prisma 7 uses a libsql adapter** — `db.ts` creates a `PrismaLibSql` adapter from `@prisma/adapter-libsql` and passes it to `PrismaClient`. The datasource URL lives in `prisma.config.ts` (not in `schema.prisma`). Import the client from `@/generated/prisma/client`.
 7. **Database sessions** — NextAuth uses database strategy, not JWT. Every session check hits SQLite.
 8. **Don't modify UI primitives** in `src/components/ui/` unless fixing a bug.
 
