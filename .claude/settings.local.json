@@ -1,0 +1,34 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(dir:*)",
+      "Bash(pwsh -Command:*)",
+      "Bash(git -C \"C:\\\\Users\\\\alike\\\\git\\\\cityseive\" log --oneline -10)",
+      "Bash(git -C \"C:\\\\Users\\\\alike\\\\git\\\\cityseive\" branch -a)",
+      "Bash(cmd /c \"where node && where npm && where pnpm && where npx\")",
+      "Bash(cmd /c \"where node\")",
+      "Bash(cmd /c \"where npm\")",
+      "Bash(cmd /c \"where pnpm\")",
+      "Bash(cmd /c \"where npx\")",
+      "Bash(export:*)",
+      "Bash(cmd.exe /c \"where node\")",
+      "Bash(cmd.exe /c \"where pnpm\")",
+      "Bash(cmd.exe /c \"where npm\")",
+      "mcp__ide__getDiagnostics",
+      "Bash(winget install:*)",
+      "Bash(git add:*)",
+      "Bash(git commit:*)",
+      "Bash(npx prisma init:*)",
+      "Bash(npm install:*)",
+      "Bash(npx prisma migrate dev:*)",
+      "Bash(npx prisma generate:*)",
+      "Bash(npx next build:*)",
+      "Bash(wc:*)",
+      "Bash(npm run build:*)",
+      "Bash(/c/Program Files/nodejs/npm.cmd run build)",
+      "Bash(npx next lint)",
+      "Bash(node -e:*)",
+      "Bash(netstat:*)"
+    ]
+  }
+}
