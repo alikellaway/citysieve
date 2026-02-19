@@ -42,7 +42,7 @@ export default function ResultsPage() {
   const router = useRouter();
   const [results, setResults] = useState<ScoredArea[]>([]);
   const [loading, setLoading] = useState(true);
-  const [progress, setProgress] = useState({ done: 0, total: 0 });
+  const [progress, setProgress] = useState({ done: 0, total: 0, currentName: '' });
   const [error, setError] = useState<string | null>(null);
   const [activeIndex, setActiveIndex] = useState<number | null>(null);
   const [modalArea, setModalArea] = useState<ScoredArea | null>(null);
@@ -61,7 +61,7 @@ export default function ResultsPage() {
 
       // Generate candidate areas in a grid around the centre
       const candidates = generateCandidateAreas(centre, 20, 3);
-      setProgress({ done: 0, total: candidates.length });
+      setProgress({ done: 0, total: candidates.length, currentName: '' });
 
       // Fetch amenities for each candidate (with concurrency limit)
       const BATCH_SIZE = 4;
@@ -69,6 +69,19 @@ export default function ResultsPage() {
 
       for (let i = 0; i < candidates.length; i += BATCH_SIZE) {
         const batch = candidates.slice(i, i + BATCH_SIZE);
+
+        // Non-blocking: look up a rough name for the first candidate in this batch
+        fetch(`/api/geocode?q=${batch[0].lat},${batch[0].lng}`)
+          .then((r) => r.json())
+          .then((data) => {
+            if (Array.isArray(data) && data.length > 0) {
+              const parts = data[0].display_name.split(',');
+              const name = parts.slice(0, 2).map((p: string) => p.trim()).join(', ');
+              setProgress((p) => ({ ...p, currentName: name }));
+            }
+          })
+          .catch(() => {});
+
         const batchResults = await Promise.allSettled(
           batch.map(async (c) => {
             const amenities = await fetchAmenities(c.lat, c.lng);
@@ -190,6 +203,9 @@ export default function ResultsPage() {
             {progress.total > 0 && (
               <p className="mt-2 text-sm text-muted-foreground">
                 Checked {progress.done} of {progress.total} areas
+                {progress.currentName && (
+                  <><br /><span>Checking {progress.currentName}...</span></>
+                )}
               </p>
             )}
           </CardContent>

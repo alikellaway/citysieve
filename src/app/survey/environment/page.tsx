@@ -73,15 +73,6 @@ export default function EnvironmentPage() {
             }
           />
 
-          {/* Green Spaces */}
-          <LikertScale
-            label="How important are green spaces nearby?"
-            value={environment.greenSpaces}
-            onChange={(val: LikertValue) =>
-              updateEnvironment({ greenSpaces: val })
-            }
-          />
-
           {/* Development Feeling */}
           <div className="space-y-2">
             <Label>How do you feel about new development?</Label>

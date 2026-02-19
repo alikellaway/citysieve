@@ -54,7 +54,6 @@ const initialState: SurveyState = {
   environment: {
     areaType: null,
     peaceAndQuiet: 3,
-    greenSpaces: 3,
     developmentFeeling: null,
     excludeAreas: [],
     consideringAreas: [],

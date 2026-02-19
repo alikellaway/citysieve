@@ -28,7 +28,12 @@
       "Bash(/c/Program Files/nodejs/npm.cmd run build)",
       "Bash(npx next lint)",
       "Bash(node -e:*)",
-      "Bash(netstat:*)"
+      "Bash(netstat:*)",
+      "Bash(git -C /c/Users/alike/git/cityseive status)",
+      "Bash(git -C /c/Users/alike/git/cityseive diff)",
+      "Bash(git -C /c/Users/alike/git/cityseive add src/components/ui/select.tsx src/styles/globals.css tailwind.config.ts)",
+      "Bash(git -C:*)",
+      "Bash(npx tsc:*)"
     ]
   }
 }

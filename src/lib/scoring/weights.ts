@@ -15,7 +15,6 @@ export interface ScoringWeights {
   librariesCulture: number;
   publicTransport: number;
   trainStation: number;
-  greenSpaces: number;
   peaceAndQuiet: number;
   familyProximity: number;
   socialScene: number;
@@ -34,7 +33,6 @@ export function extractWeights(state: SurveyState): ScoringWeights {
     librariesCulture: normalizeLikert(state.lifestyle.librariesCulture),
     publicTransport: normalizeLikert(state.transport.publicTransportReliance),
     trainStation: normalizeLikert(state.transport.trainStationImportance),
-    greenSpaces: normalizeLikert(state.environment.greenSpaces),
     peaceAndQuiet: normalizeLikert(state.environment.peaceAndQuiet),
     familyProximity: normalizeLikert(state.family.familyProximityImportance),
     socialScene: normalizeLikert(state.family.socialImportance),
