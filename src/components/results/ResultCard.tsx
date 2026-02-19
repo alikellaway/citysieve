@@ -10,6 +10,7 @@ interface ResultCardProps {
   rank: number;
   isActive: boolean;
   onClick: () => void;
+  onExplore: () => void;
 }
 
 const HIGHLIGHT_LABELS: Record<string, string> = {
@@ -30,7 +31,7 @@ const HIGHLIGHT_LABELS: Record<string, string> = {
   socialScene: 'Social scene',
 };
 
-export function ResultCard({ result, rank, isActive, onClick }: ResultCardProps) {
+export function ResultCard({ result, rank, isActive, onClick, onExplore }: ResultCardProps) {
   return (
     <Card
       className={cn(
@@ -59,6 +60,14 @@ export function ResultCard({ result, rank, isActive, onClick }: ResultCardProps)
               {HIGHLIGHT_LABELS[h] ?? h}
             </Badge>
           ))}
+        </div>
+        <div className="mt-3 flex justify-end">
+          <button
+            className="text-sm font-medium text-primary underline underline-offset-2 hover:no-underline"
+            onClick={(e) => { e.stopPropagation(); onExplore(); }}
+          >
+            Explore area →
+          </button>
         </div>
       </CardContent>
     </Card>

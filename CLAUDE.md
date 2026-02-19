@@ -25,6 +25,10 @@ GOOGLE_CLIENT_ID=<from Google Cloud Console>
 GOOGLE_CLIENT_SECRET=<from Google Cloud Console>
 NEXT_PUBLIC_BMAC_USERNAME=citysieve
 DATABASE_URL=file:./dev.db
+NEXT_PUBLIC_AWIN_ID=          # Optional: Awin affiliate ID for Rightmove/Zoopla links in area modal
+NEXT_PUBLIC_SPONSORED_URL=    # Optional: URL for sponsored slot in area modal
+NEXT_PUBLIC_SPONSORED_LABEL=  # Optional: Sponsor name (e.g. "Habito")
+NEXT_PUBLIC_SPONSORED_TEXT=   # Optional: Short tagline (e.g. "Find your best mortgage")
 ```
 
 ## Critical Gotchas

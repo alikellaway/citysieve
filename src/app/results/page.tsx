@@ -10,6 +10,7 @@ import { generateCandidateAreas } from '@/lib/data/area-generator';
 import { bestCommuteTime } from '@/lib/scoring/commute';
 import { scoreAndRankAreas, type AreaProfile, type ScoredArea } from '@/lib/scoring/engine';
 import { ResultCard } from '@/components/results/ResultCard';
+import { AreaInfoModal } from '@/components/results/AreaInfoModal';
 import { AdSlot } from '@/components/ads/AdSlot';
 import { DonateButton } from '@/components/donate/DonateButton';
 import { SiteHeader } from '@/components/layout/SiteHeader';
@@ -44,6 +45,7 @@ export default function ResultsPage() {
   const [progress, setProgress] = useState({ done: 0, total: 0 });
   const [error, setError] = useState<string | null>(null);
   const [activeIndex, setActiveIndex] = useState<number | null>(null);
+  const [modalArea, setModalArea] = useState<ScoredArea | null>(null);
   const [saved, setSaved] = useState(false);
   const cardRefs = useRef<(HTMLDivElement | null)[]>([]);
   const hasRun = useRef(false);
@@ -239,6 +241,7 @@ export default function ResultsPage() {
                     rank={i + 1}
                     isActive={i === activeIndex}
                     onClick={() => handleCardClick(i)}
+                    onExplore={() => setModalArea(result)}
                   />
                 </div>
                 {(i + 1) % 3 === 0 && i < results.length - 1 && (
@@ -247,6 +250,8 @@ export default function ResultsPage() {
               </React.Fragment>
             ))}
           </div>
+
+          <AreaInfoModal area={modalArea} onClose={() => setModalArea(null)} />
 
           <div className="flex flex-col items-center gap-4 pt-4">
             {session && (
