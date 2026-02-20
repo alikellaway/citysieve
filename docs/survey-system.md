@@ -10,6 +10,8 @@ All types used across the app are defined here. Read this file first when workin
 
 **Step interfaces**: `ProfileStep`, `CommuteStep`, `FamilyStep`, `LifestyleStep`, `TransportStep`, `EnvironmentStep`
 
+`CommuteStep` fields: `workLocation`, `daysPerWeek`, `maxCommuteTime`, `commuteTimeIsHardCap` (boolean, default `true`), `commuteModes`. When `commuteTimeIsHardCap` is `true`, areas whose estimated commute exceeds `maxCommuteTime` are eliminated from results. When `false`, they are penalised (score 0 on the commute dimension) but not excluded.
+
 **Top-level state**: `SurveyState` — contains all 6 step interfaces + `currentStep: number`
 
 ## Steps (`src/lib/survey/steps.ts`)
@@ -57,7 +59,7 @@ Wraps the context and exposes memoized helpers:
 Zod schemas for each step: `profileSchema`, `commuteSchema`, `familySchema`, `lifestyleSchema`, `transportSchema`, `environmentSchema`.
 
 Notable refinements:
-- `commuteSchema` — requires at least one commute mode if `daysPerWeek > 0`
+- `commuteSchema` — requires at least one commute mode if `daysPerWeek > 0`; includes `commuteTimeIsHardCap: z.boolean().default(true)`
 - `familySchema` — requires `schoolPriority` when `childrenStatus !== 'no'`
 
 ## How to add a new survey step

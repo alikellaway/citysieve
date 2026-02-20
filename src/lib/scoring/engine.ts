@@ -1,4 +1,4 @@
-import type { SurveyState } from '@/lib/survey/types';
+import type { SurveyState, CommuteMode } from '@/lib/survey/types';
 import { extractWeights, type ScoringWeights } from './weights';
 import { applyHardFilters } from './filters';
 import { bestCommuteTime } from './commute';
@@ -18,6 +18,7 @@ export interface AreaProfile {
     greenSpaceCoverage: number;
   };
   commuteEstimate?: number;
+  commuteBreakdown?: Partial<Record<CommuteMode, number>>;
 }
 
 export interface ScoredArea {

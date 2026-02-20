@@ -68,6 +68,33 @@ When modifying code, update the corresponding doc file:
 | `src/lib/auth.ts`, `src/lib/db.ts`, `prisma/schema.prisma` | `docs/auth-database.md` |
 | `src/components/` | `docs/components.md` |
 
+## Sub-Agents
+
+Use sub-agents to keep the main context clean and speed up focused work. Prefer them for exploration, isolated implementation, and tasks that generate verbose output.
+
+### Custom agents (`.claude/agents/`)
+
+| Agent | When to use |
+|-------|-------------|
+| `scoring-auditor` | Before changing scoring weights/filters; tracing why an area scored a certain way; auditing scoring edge cases |
+| `db-migration-helper` | Adding/modifying Prisma models or fields; running migrations; regenerating the client |
+| `map-debugger` | Leaflet rendering issues; SSR errors from map; marker/zoom/bounds bugs; modifying `ResultMap.tsx` |
+| `api-route-developer` | Implementing new API routes; modifying existing route behaviour; keeping `docs/api-routes.md` current |
+| `frontend-reviewer` | Code review of React components, Tailwind, TypeScript types, hydration safety, and accessibility |
+| `backend-reviewer` | Code review of API routes, auth logic, middleware, external API integrations, and error handling |
+| `database-engineer` | Schema design review, query efficiency, indexing strategy, N+1 risks, and Prisma/libsql compatibility |
+| `data-safety-expert` | GDPR/UK GDPR compliance audit — data collected, retention, subject rights, third-party processors, consent |
+
+### Built-in agents
+
+| Agent | When to use |
+|-------|-------------|
+| `Explore` | Searching the codebase before making changes — finding existing patterns, tracing data flow, locating files |
+| `Plan` | Designing an implementation approach for non-trivial features before writing code |
+| `Bash` | Running commands where output is verbose and doesn't need to stay in context (`npm run build`, git ops) |
+
+**Rule of thumb**: if a task is exploratory or isolated, delegate it. Keep the main conversation for decisions and cross-cutting changes.
+
 ## Session Round-up
 
 1. **Update docs** — update `CLAUDE.md` and any relevant `docs/*.md` files to reflect your changes.

@@ -61,3 +61,16 @@ export function bestCommuteTime(
 
   return Math.min(...times);
 }
+
+/** Returns estimated commute minutes for each of the given modes. */
+export function commuteBreakdown(
+  fromLat: number,
+  fromLng: number,
+  toLat: number,
+  toLng: number,
+  modes: CommuteMode[]
+): Partial<Record<CommuteMode, number>> {
+  return Object.fromEntries(
+    modes.map((mode) => [mode, estimateCommuteTime(fromLat, fromLng, toLat, toLng, mode)])
+  ) as Partial<Record<CommuteMode, number>>;
+}

@@ -9,7 +9,8 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: 'Missing query' }, { status: 400 });
   }
 
-  const cacheKey = `geocode:${q.toLowerCase()}`;
+  const countrycodes = request.nextUrl.searchParams.get('countrycodes') ?? '';
+  const cacheKey = `geocode:${countrycodes}:${q.toLowerCase()}`;
   const cached = cache.get(cacheKey);
   if (cached && Date.now() - cached.timestamp < CACHE_TTL) {
     return NextResponse.json(cached.data);
@@ -20,6 +21,7 @@ export async function GET(request: NextRequest) {
   url.searchParams.set('format', 'json');
   url.searchParams.set('limit', '5');
   url.searchParams.set('addressdetails', '1');
+  if (countrycodes) url.searchParams.set('countrycodes', countrycodes);
 
   const res = await fetch(url.toString(), {
     headers: { 'User-Agent': 'CitySieve/1.0' },

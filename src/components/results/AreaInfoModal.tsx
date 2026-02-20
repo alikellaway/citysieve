@@ -1,5 +1,6 @@
 'use client';
 
+import { useState, useEffect } from 'react';
 import {
   Dialog,
   DialogContent,
@@ -8,6 +9,14 @@ import {
 } from '@/components/ui/dialog';
 import { Badge } from '@/components/ui/badge';
 import type { ScoredArea } from '@/lib/scoring/engine';
+
+const MODE_LABELS: Record<string, string> = {
+  drive: 'Car',
+  train: 'Train',
+  bus: 'Bus',
+  cycle: 'Cycling',
+  walk: 'Walking',
+};
 
 interface AreaInfoModalProps {
   area: ScoredArea | null;
@@ -36,6 +45,13 @@ const ENVIRONMENT_LABELS: Record<string, string> = {
 };
 
 export function AreaInfoModal({ area, onClose }: AreaInfoModalProps) {
+  const [showBreakdown, setShowBreakdown] = useState(false);
+
+  // Collapse breakdown whenever a different area is opened
+  useEffect(() => {
+    setShowBreakdown(false);
+  }, [area?.area.id]);
+
   if (!area) return null;
 
   const { lat, lng } = area.area.coordinates;
@@ -93,9 +109,26 @@ export function AreaInfoModal({ area, onClose }: AreaInfoModalProps) {
             {ENVIRONMENT_LABELS[area.area.environment.type] ?? area.area.environment.type}
           </span>
           {area.area.commuteEstimate !== undefined && (
-            <span className="rounded bg-muted px-2 py-0.5">
-              ~{Math.round(area.area.commuteEstimate)} min commute
-            </span>
+            <div>
+              <button
+                className="rounded bg-muted px-2 py-0.5 transition-colors hover:bg-muted/70"
+                onClick={() => setShowBreakdown((v) => !v)}
+                aria-expanded={showBreakdown}
+              >
+                ~{Math.round(area.area.commuteEstimate)} min commute{' '}
+                <span aria-hidden>{showBreakdown ? '▴' : '▾'}</span>
+              </button>
+              {showBreakdown && area.area.commuteBreakdown && (
+                <div className="mt-1.5 space-y-1 rounded bg-muted/60 px-2.5 py-2 text-xs">
+                  {Object.entries(area.area.commuteBreakdown).map(([mode, mins]) => (
+                    <div key={mode} className="flex justify-between gap-6">
+                      <span className="text-muted-foreground">{MODE_LABELS[mode] ?? mode}</span>
+                      <span className="tabular-nums">{Math.round(mins)} min</span>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
           )}
         </div>
 

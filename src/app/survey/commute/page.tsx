@@ -5,6 +5,7 @@ import { useSurvey } from '@/hooks/useSurvey';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
 import { Slider } from '@/components/ui/slider';
+import { Switch } from '@/components/ui/switch';
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
 import { LocationAutocomplete } from '@/components/survey/LocationAutocomplete';
 import { StepNavigation } from '@/components/survey/StepNavigation';
@@ -78,6 +79,32 @@ export default function CommutePage() {
               <span>90 mins</span>
             </div>
           </div>
+
+          {/* Hard cap toggle — only relevant when actually commuting */}
+          {commute.daysPerWeek > 0 && (
+            <div className="flex items-center justify-between gap-4 rounded-lg border border-border bg-muted/40 px-4 py-3">
+              <div className="space-y-0.5">
+                <Label
+                  htmlFor="hard-cap-switch"
+                  className="cursor-pointer text-sm font-medium"
+                >
+                  Strict maximum
+                </Label>
+                <p className="text-xs text-muted-foreground">
+                  {commute.commuteTimeIsHardCap
+                    ? 'Areas beyond this commute time will be excluded from results.'
+                    : 'Areas beyond this time will score lower, but still appear in results.'}
+                </p>
+              </div>
+              <Switch
+                id="hard-cap-switch"
+                checked={commute.commuteTimeIsHardCap}
+                onCheckedChange={(checked) =>
+                  updateCommute({ commuteTimeIsHardCap: checked })
+                }
+              />
+            </div>
+          )}
 
           {/* Commute Modes */}
           <div className="space-y-3">

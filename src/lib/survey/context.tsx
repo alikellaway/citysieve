@@ -24,6 +24,7 @@ const initialState: SurveyState = {
     workLocation: null,
     daysPerWeek: 5,
     maxCommuteTime: 45,
+    commuteTimeIsHardCap: true,
     commuteModes: [],
   },
   family: {
@@ -109,7 +110,19 @@ function loadState(): SurveyState {
   try {
     const stored = localStorage.getItem(STORAGE_KEY);
     if (stored) {
-      return JSON.parse(stored) as SurveyState;
+      const parsed = JSON.parse(stored) as SurveyState;
+      // Merge with initialState to fill in any fields added after the stored
+      // state was written (e.g. commuteTimeIsHardCap for existing sessions).
+      return {
+        ...initialState,
+        ...parsed,
+        commute: { ...initialState.commute, ...parsed.commute },
+        profile: { ...initialState.profile, ...parsed.profile },
+        family: { ...initialState.family, ...parsed.family },
+        lifestyle: { ...initialState.lifestyle, ...parsed.lifestyle },
+        transport: { ...initialState.transport, ...parsed.transport },
+        environment: { ...initialState.environment, ...parsed.environment },
+      };
     }
   } catch {
     // Ignore parse errors, fall through to default

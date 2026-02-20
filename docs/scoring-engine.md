@@ -9,6 +9,22 @@ generateCandidateAreas() → fetch amenities via /api/overpass → build AreaPro
   → scoreAndRankAreas() → reverse-geocode names → display top 10
 ```
 
+### Ring-based "Search further afield"
+
+Results are grouped into **rings**. Each ring represents a 20 km band of distance from the search centre:
+
+- Initial load: ring 0–20 km (`fetchRingResults(centre, innerKm=0, outerKm=20)`)
+- First "Search further afield" press: ring 20–40 km
+- Second press: ring 40–60 km, and so on
+
+The helper `fetchRingResults(centre, innerKm, outerKm, setProgressFn)`:
+1. Calls `generateCandidateAreas(centre, outerKm, 3)` to get the full outer grid
+2. If `innerKm > 0`, filters candidates to those with `haversineDistance(centre, candidate) > innerKm`
+3. Fetches amenities, builds profiles, calls `scoreAndRankAreas()`, and reverse-geocodes — all using the same survey state
+4. Returns the top 10 scored areas for that ring
+
+State involved: `resultRings: ResultRing[]` (accumulates rings), `searchedRadiusKm` (tracks the outermost ring searched), `isLoadingMore`, `moreProgress`. The map receives `allResults = resultRings.flatMap(r => r.items)` so all rings appear on the map simultaneously.
+
 ## Area generation (`src/lib/data/area-generator.ts`)
 
 `generateCandidateAreas(center, radiusKm, spacingKm)` creates a hex grid of candidate points within a circle around the centre.
@@ -37,7 +53,8 @@ interface AreaProfile {
   normalizedAmenities: Record<string, number>; // 0-1 normalized across all candidates
   transport: { trainStationProximity: number; busFrequency: number };
   environment: { type: AreaType; greenSpaceCoverage: number };
-  commuteEstimate?: number;                  // minutes, via bestCommuteTime()
+  commuteEstimate?: number;                  // minutes, best across user's selected modes
+  commuteBreakdown?: Partial<Record<CommuteMode, number>>; // minutes per selected mode
 }
 ```
 
@@ -46,6 +63,8 @@ Area type is classified by distance from centre: <3km city_centre, <8km inner_su
 ## Commute estimation (`src/lib/scoring/commute.ts`)
 
 `bestCommuteTime(from, to, modes)` — calculates haversine distance, then estimates time for each mode and returns the minimum.
+
+`commuteBreakdown(from, to, modes)` — returns a `Partial<Record<CommuteMode, number>>` with the estimated minutes for each of the given modes. Used to power the per-mode breakdown in `AreaInfoModal`.
 
 Speed assumptions (km/h): drive=30, train=50 (+10min overhead), bus=15, cycle=15, walk=5.
 
@@ -62,7 +81,7 @@ Speed assumptions (km/h): drive=30, train=50 (+10min overhead), bus=15, cycle=15
 
 | Filter | Logic |
 |--------|-------|
-| Commute time | Removes areas where `commuteEstimate > maxCommuteTime` |
+| Commute time | Removes areas where `commuteEstimate > maxCommuteTime` **and** `commuteTimeIsHardCap === true`. When the hard cap is off, areas over the limit are not removed — they score 0 on the commute dimension and are naturally deprioritised. |
 | Area type | Removes areas > 1 step away from user's preferred type on the scale: city_centre → inner_suburb → outer_suburb → town → rural |
 | Excluded areas | Removes areas whose name contains any of the user's excluded area strings (case-insensitive) |
 

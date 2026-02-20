@@ -6,8 +6,9 @@ export function applyHardFilters(
   state: SurveyState
 ): AreaProfile[] {
   return areas.filter((area) => {
-    // Filter 1: Commute time exceeds max tolerance
+    // Filter 1: Commute time exceeds max tolerance (only when user set a hard cap)
     if (
+      state.commute.commuteTimeIsHardCap &&
       area.commuteEstimate !== undefined &&
       area.commuteEstimate > state.commute.maxCommuteTime
     ) {

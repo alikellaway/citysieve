@@ -27,6 +27,7 @@ export interface CommuteStep {
   workLocation: GeoLocation | null;
   daysPerWeek: number;
   maxCommuteTime: number;
+  commuteTimeIsHardCap: boolean;
   commuteModes: CommuteMode[];
 }
 

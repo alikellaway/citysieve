@@ -124,7 +124,7 @@ export default function ReviewPage() {
           />
           <ReviewItem
             label="Max commute"
-            value={`${commute.maxCommuteTime} mins`}
+            value={`${commute.maxCommuteTime} mins${commute.daysPerWeek > 0 ? (commute.commuteTimeIsHardCap ? ' (strict)' : ' (preference)') : ''}`}
           />
           <ReviewItem
             label="Commute modes"

@@ -102,6 +102,7 @@ export default function EnvironmentPage() {
             onChange={(tags) => updateEnvironment({ excludeAreas: tags })}
             label="Any areas to exclude?"
             placeholder="Type an area name and press Enter..."
+            enableAutocomplete
           />
 
           {/* Considering Areas */}
@@ -110,6 +111,7 @@ export default function EnvironmentPage() {
             onChange={(tags) => updateEnvironment({ consideringAreas: tags })}
             label="Areas you're already considering?"
             placeholder="Type an area name and press Enter..."
+            enableAutocomplete
           />
         </CardContent>
       </Card>

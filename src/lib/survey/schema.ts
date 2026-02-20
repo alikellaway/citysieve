@@ -26,6 +26,7 @@ export const commuteSchema = z
     workLocation: geoLocationSchema.nullable(),
     daysPerWeek: z.coerce.number().min(0).max(5),
     maxCommuteTime: z.coerce.number().min(15).max(90),
+    commuteTimeIsHardCap: z.boolean().default(true),
     commuteModes: z.array(z.enum(['drive', 'train', 'bus', 'cycle', 'walk'])),
   })
   .refine(
