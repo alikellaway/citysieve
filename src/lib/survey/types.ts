@@ -75,4 +75,5 @@ export interface SurveyState {
   transport: TransportStep;
   environment: EnvironmentStep;
   currentStep: number;
+  surveyMode: 'full' | 'quick' | null;
 }

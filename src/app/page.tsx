@@ -22,18 +22,25 @@ export default function HomePage() {
           </p>
           <div className="mt-10 flex flex-col items-center gap-4 sm:flex-row sm:justify-center">
             <Link
-              href="/survey/profile"
+              href="/quick-survey"
               className="inline-flex h-12 items-center rounded-lg bg-primary px-8 text-lg font-semibold text-primary-foreground shadow hover:bg-primary/90"
             >
-              Start the Survey
+              Quick Start — 2 mins
             </Link>
-            <a
-              href="#how-it-works"
+            <Link
+              href="/survey/profile"
               className="inline-flex h-12 items-center rounded-lg border border-input px-8 text-lg font-semibold hover:bg-accent"
             >
-              How it works
-            </a>
+              Full Survey
+            </Link>
           </div>
+          <p className="mt-3 text-sm text-muted-foreground">
+            Quick Start gives instant results.{' '}
+            <a href="#how-it-works" className="underline underline-offset-2 hover:text-foreground">
+              Full Survey
+            </a>{' '}
+            lets you fine-tune 25+ preferences.
+          </p>
         </div>
 
         <AdSlot size="leaderboard" className="mt-12" />

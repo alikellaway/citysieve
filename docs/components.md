@@ -6,12 +6,18 @@ All components are in `src/components/`.
 
 ### `SiteHeader` (`layout/SiteHeader.tsx`)
 - Used on: landing page, survey layout, results page, my-surveys page
-- Contains: logo link (`/`) + `AuthButton`
+- Contains: logo link (`/`) + `ThemeToggle` + `AuthButton`
 - The survey layout adds it automatically — don't duplicate it in survey step pages or the review page
+
+### `ThemeToggle` (`ThemeToggle.tsx`)
+- Client component. Three-option dropdown: Light / Dark / System (default)
+- Uses `useTheme()` from `next-themes`; icons: Sun / Moon / Monitor from `lucide-react`
+- Renders a placeholder `<div>` before mount to avoid hydration mismatches
+- Placed in `SiteHeader` adjacent to `AuthButton`
 
 ### `SessionProvider` (`providers/SessionProvider.tsx`)
 - NextAuth `SessionProvider` wrapper (client component)
-- Mounted in root layout — wraps the entire app
+- Mounted inside `Providers` in root layout — wraps the entire app
 
 ## Auth
 
@@ -59,10 +65,14 @@ All components are in `src/components/`.
 ## Results components (`results/`)
 
 ### `ResultCard` (`results/ResultCard.tsx`)
-- **Props**: `result: ScoredArea`, `rank: number`, `isActive: boolean`, `onClick: () => void`, `onExplore: () => void`
-- Displays rank badge, area name, score percentage, highlight badges, and an "Explore area →" button
-- `onClick` activates the map pin; `onExplore` opens the `AreaInfoModal` (button uses `stopPropagation` so both don't fire)
+- **Props**: `result: ScoredArea`, `rank: number`, `isActive: boolean`, `isHovered: boolean`, `onClick: () => void`, `onHover: () => void`, `onLeave: () => void`, `onExplore: () => void`
+- Displays rank badge (colour-coded by tier), area name, score percentage, highlight badges, and an "Explore area →" button
+- **Rank badge colours**: 1–3 green, 4–7 amber, 8+ slate — matches map pin colours
+- `onClick` activates the map pin; `onHover`/`onLeave` control hover highlighting
+- `onExplore` opens the `AreaInfoModal` (button uses `stopPropagation` so both don't fire)
+- **Visual states**: `isActive` shows strong ring; `isHovered` (when not active) shows subtle ring
 - Highlights map internal keys to friendly labels via `HIGHLIGHT_LABELS` lookup
+- **Score breakdown**: Collapsed by default; click "▼ Score breakdown" to expand. Shows horizontal bars for each dimension where the user's weight > 0, sorted by descending weighted contribution (weight × score). Uses `ScoredArea.weights` and `ScoredArea.breakdown`
 
 ### `AreaInfoModal` (`results/AreaInfoModal.tsx`)
 - **Props**: `area: ScoredArea | null`, `onClose: () => void`
@@ -74,10 +84,19 @@ All components are in `src/components/`.
 - **Sponsored slot**: Rendered only when `NEXT_PUBLIC_SPONSORED_URL` is set; shows a "Sponsored" chip, sponsor name (`NEXT_PUBLIC_SPONSORED_LABEL`), tagline (`NEXT_PUBLIC_SPONSORED_TEXT`), and link
 
 ### `ResultMap` (`results/ResultMap.tsx`)
-- **Props**: `results: ScoredArea[]`, `activeIndex: number | null`, `onMarkerClick: (index: number) => void`
-- Leaflet `MapContainer` with `TileLayer` (OSM) + `Marker` per result
-- Active marker uses a larger icon; `FlyToActive` sub-component pans the map
+- **Props**: `results: ScoredArea[]`, `activeIndex: number | null`, `hoverIndex: number | null`, `onMarkerClick: (index: number) => void`, `onMarkerHover: (index: number | null) => void`
+- Leaflet `MapContainer` with CartoDB tile layer + custom `divIcon` markers per result
+- **Tile layers**: CartoDB Positron (light) / CartoDB Dark Matter (dark) — selected via `useTheme().resolvedTheme`. `key={tile.url}` forces Leaflet to swap layers when theme changes
+- **Pin design**: SVG teardrop with rank number displayed; colour-coded by tier (1–3 green, 4–7 amber, 8+ slate) — colours shared via `rankColors.ts`
+- **Pin states**: default (28px), hover (32px), active (36px) — hover and active grow the pin
+- `FlyToActive` sub-component pans the map to the active pin on click
+- **Hover linking**: mouseover on pin or card highlights both; `hoverIndex` drives the sync
 - **Must be dynamically imported** with `ssr: false` — Leaflet requires `window`
+
+### `rankColors` (`results/rankColors.ts`)
+- Shared utility: `getRankColor(rank: number): string`
+- Returns `#22c55e` (green-500) for ranks 1–3, `#f59e0b` (amber-500) for 4–7, `#94a3b8` (slate-400) for 8+
+- Imported by both `ResultCard` and `ResultMap` to keep badge and pin colours in sync
 
 ## UI primitives (`ui/`)
 

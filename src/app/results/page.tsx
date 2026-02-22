@@ -3,6 +3,7 @@
 import { useEffect, useState, useCallback, useRef } from 'react';
 import React from 'react';
 import dynamic from 'next/dynamic';
+import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useSession } from 'next-auth/react';
 import { useSurvey } from '@/hooks/useSurvey';
@@ -17,6 +18,63 @@ import { SiteHeader } from '@/components/layout/SiteHeader';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import type { GeoLocation } from '@/lib/survey/types';
+
+type NominatimAddress = {
+  suburb?: string;
+  village?: string;
+  hamlet?: string;
+  city_district?: string;
+  town?: string;
+  city?: string;
+};
+
+type NominatimResult = {
+  display_name: string;
+  address?: NominatimAddress;
+};
+
+function extractAreaName(data: NominatimResult[]): string | null {
+  if (!data.length || !data[0].address) return null;
+  const addr = data[0].address;
+  return addr.suburb || addr.village || addr.hamlet || 
+         addr.city_district || addr.town || addr.city || null;
+}
+
+function getMatchedAddressType(addr: NominatimAddress | undefined): string | null {
+  if (!addr) return null;
+  if (addr.suburb) return 'suburb';
+  if (addr.village) return 'village';
+  if (addr.hamlet) return 'hamlet';
+  if (addr.city_district) return 'city_district';
+  if (addr.town) return 'town';
+  if (addr.city) return 'city';
+  return null;
+}
+
+function getCardinalDirection(
+  centre: { lat: number; lng: number },
+  point: { lat: number; lng: number }
+): string | null {
+  const latDiff = point.lat - centre.lat;
+  const lngDiff = point.lng - centre.lng;
+
+  if (Math.abs(latDiff) < 0.015 && Math.abs(lngDiff) < 0.02) return null;
+
+  const isNorth = latDiff > 0.015;
+  const isSouth = latDiff < -0.015;
+  const isEast = lngDiff > 0.02;
+  const isWest = lngDiff < -0.02;
+
+  if (isNorth && isEast) return 'North East';
+  if (isNorth && isWest) return 'North West';
+  if (isSouth && isEast) return 'South East';
+  if (isSouth && isWest) return 'South West';
+  if (isNorth) return 'North';
+  if (isSouth) return 'South';
+  if (isEast) return 'East';
+  if (isWest) return 'West';
+  return null;
+}
 
 const ResultMap = dynamic(
   () => import('@/components/results/ResultMap').then((m) => m.ResultMap),
@@ -55,13 +113,13 @@ function ProgressBar({ progress }: { progress: ProgressState }) {
       <div className="relative">
         <div className="h-1 w-full overflow-hidden rounded-full bg-secondary">
           <div
-            className="h-full rounded-full bg-gradient-to-r from-indigo-500 to-violet-500 transition-[width] duration-700 ease-out"
+            className="h-full rounded-full bg-gradient-to-r from-indigo-500 to-violet-500 dark:from-indigo-400 dark:to-violet-400 transition-[width] duration-700 ease-out"
             style={{ width: `${(progress.done / progress.total) * 100}%` }}
           />
         </div>
         {progress.done > 0 && progress.done < progress.total && (
           <div
-            className="absolute top-1/2 h-3 w-3 -translate-x-1/2 -translate-y-1/2 rounded-full bg-violet-500 shadow-[0_0_10px_4px_rgba(139,92,246,0.55)] transition-[left] duration-700 ease-out"
+            className="absolute top-1/2 h-3 w-3 -translate-x-1/2 -translate-y-1/2 rounded-full bg-violet-500 dark:bg-violet-400 shadow-[0_0_10px_4px_rgba(139,92,246,0.55)] dark:shadow-[0_0_10px_4px_rgba(167,139,250,0.6)] transition-[left] duration-700 ease-out"
             style={{ left: `${(progress.done / progress.total) * 100}%` }}
           />
         )}
@@ -83,6 +141,7 @@ export default function ResultsPage() {
   const [progress, setProgress] = useState<ProgressState>({ done: 0, total: 0, currentName: '' });
   const [error, setError] = useState<string | null>(null);
   const [activeIndex, setActiveIndex] = useState<number | null>(null);
+  const [hoverIndex, setHoverIndex] = useState<number | null>(null);
   const [modalArea, setModalArea] = useState<ScoredArea | null>(null);
   const [saved, setSaved] = useState(false);
   const [searchedRadiusKm, setSearchedRadiusKm] = useState(20);
@@ -132,10 +191,9 @@ export default function ResultsPage() {
       // Non-blocking: grab a readable name for the progress display
       fetch(`/api/geocode?q=${batch[0].lat},${batch[0].lng}`)
         .then((r) => r.json())
-        .then((data) => {
+        .then((data: NominatimResult[]) => {
           if (Array.isArray(data) && data.length > 0) {
-            const parts = data[0].display_name.split(',');
-            const name = parts.slice(0, 2).map((p: string) => p.trim()).join(', ');
+            const name = extractAreaName(data) || data[0].display_name.split(',')[0].trim();
             setProgressFn((p) => ({ ...p, currentName: name }));
           }
         })
@@ -198,10 +256,24 @@ export default function ResultsPage() {
           const res = await fetch(
             `/api/geocode?q=${s.area.coordinates.lat},${s.area.coordinates.lng}`
           );
-          const data = await res.json();
+          const data: NominatimResult[] = await res.json();
+          
           if (data.length > 0) {
-            const parts = data[0].display_name.split(',');
-            const name = parts.slice(0, 2).map((p: string) => p.trim()).join(', ');
+            let name = extractAreaName(data);
+            
+            if (!name) {
+              const parts = data[0].display_name.split(',');
+              name = parts[0].trim();
+            }
+
+            const addressType = getMatchedAddressType(data[0].address);
+            if (addressType && ['city', 'town', 'city_district'].includes(addressType)) {
+              const direction = getCardinalDirection(centre, s.area.coordinates);
+              if (direction) {
+                name = `${direction} ${name}`;
+              }
+            }
+
             return { ...s, area: { ...s.area, name } };
           }
         } catch {
@@ -261,6 +333,10 @@ export default function ResultsPage() {
   function handleMarkerClick(index: number) {
     setActiveIndex(index);
     cardRefs.current[index]?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+  }
+
+  function handleMarkerHover(index: number | null) {
+    setHoverIndex(index);
   }
 
   function handleCardClick(index: number) {
@@ -342,7 +418,9 @@ export default function ResultsPage() {
             <ResultMap
               results={allResults}
               activeIndex={activeIndex}
+              hoverIndex={hoverIndex}
               onMarkerClick={handleMarkerClick}
+              onMarkerHover={handleMarkerHover}
             />
 
             {/* Result cards, grouped by ring */}
@@ -374,7 +452,10 @@ export default function ResultsPage() {
                               result={result}
                               rank={cardIndex + 1}
                               isActive={cardIndex === activeIndex}
+                              isHovered={cardIndex === hoverIndex}
                               onClick={() => handleCardClick(cardIndex)}
+                              onHover={() => setHoverIndex(cardIndex)}
+                              onLeave={() => setHoverIndex(null)}
                               onExplore={() => setModalArea(result)}
                             />
                           </div>
@@ -430,6 +511,24 @@ export default function ResultsPage() {
               </Button>
               <DonateButton />
             </div>
+
+            {/* Upgrade prompt — shown only after the quick survey */}
+            {state.surveyMode === 'quick' && (
+              <Card className="border-primary/30 bg-primary/5">
+                <CardContent className="flex flex-col items-center gap-3 py-6 text-center sm:flex-row sm:text-left">
+                  <div className="flex-1 space-y-1">
+                    <p className="font-semibold">Want more tailored results?</p>
+                    <p className="text-sm text-muted-foreground">
+                      Complete the full survey to fine-tune 25+ preferences. Your quick
+                      answers will carry over as a starting point.
+                    </p>
+                  </div>
+                  <Button asChild>
+                    <Link href="/survey/profile">Refine with Full Survey</Link>
+                  </Button>
+                </CardContent>
+              </Card>
+            )}
           </div>
         )}
       </div>

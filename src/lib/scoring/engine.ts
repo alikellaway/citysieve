@@ -26,6 +26,7 @@ export interface ScoredArea {
   score: number;
   highlights: string[];
   breakdown: Record<string, number>;
+  weights: ScoringWeights;
 }
 
 export function normalizeAmenities(areas: AreaProfile[]): AreaProfile[] {
@@ -127,6 +128,7 @@ function scoreArea(
     score: Math.round(score * 10) / 10,
     highlights: sortedCategories,
     breakdown,
+    weights,
   };
 }
 

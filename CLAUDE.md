@@ -84,6 +84,7 @@ Use sub-agents to keep the main context clean and speed up focused work. Prefer 
 | `backend-reviewer` | Code review of API routes, auth logic, middleware, external API integrations, and error handling |
 | `database-engineer` | Schema design review, query efficiency, indexing strategy, N+1 risks, and Prisma/libsql compatibility |
 | `data-safety-expert` | GDPR/UK GDPR compliance audit — data collected, retention, subject rights, third-party processors, consent |
+| `ui-designer` | Design decisions for new or existing UI — layout, visual hierarchy, interaction patterns, mobile responsiveness, emotional tone, and accessibility. Invoke before implementing any new page or component, or when evaluating UX quality |
 
 ### Built-in agents
 

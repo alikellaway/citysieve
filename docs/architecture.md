@@ -5,8 +5,12 @@
 ```
 src/
 ├── app/
-│   ├── layout.tsx              # Root layout (SessionProvider + SurveyProvider)
+│   ├── layout.tsx              # Root layout (delegates all providers to providers.tsx)
+│   ├── providers.tsx           # Client component: ThemeProvider + SessionProvider + SurveyProvider
 │   ├── page.tsx                # Landing page
+│   ├── quick-survey/
+│   │   ├── layout.tsx          # Minimal layout (SiteHeader only, no progress bar)
+│   │   └── page.tsx            # Single-page quick survey (~4 questions → /results)
 │   ├── survey/
 │   │   ├── layout.tsx          # Survey layout (SiteHeader + ProgressBar)
 │   │   ├── profile/page.tsx    # Step 1
@@ -37,16 +41,18 @@ src/
 
 ## Provider hierarchy
 
-Root layout (`src/app/layout.tsx`) wraps the entire app:
+Root layout (`src/app/layout.tsx`) wraps the entire app via `src/app/providers.tsx`:
 
 ```
-<html>
+<html suppressHydrationWarning>        ← suppressHydrationWarning here (next-themes sets class=)
   <body>
-    <SessionProvider>          ← NextAuth client context
-      <SurveyProvider>         ← useReducer + localStorage persistence
-        {children}
-      </SurveyProvider>
-    </SessionProvider>
+    <ThemeProvider attribute="class">  ← next-themes; sets .dark on <html>; default: system
+      <SessionProvider>                ← NextAuth client context
+        <SurveyProvider>               ← useReducer + localStorage persistence
+          {children}
+        </SurveyProvider>
+      </SessionProvider>
+    </ThemeProvider>
   </body>
 </html>
 ```

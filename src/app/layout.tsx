@@ -1,6 +1,5 @@
 import type { Metadata } from "next";
-import { SessionProvider } from "@/components/providers/SessionProvider";
-import { SurveyProvider } from "@/lib/survey/context";
+import { Providers } from "@/app/providers";
 import "@/styles/globals.css";
 
 export const metadata: Metadata = {
@@ -15,11 +14,9 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="en">
-      <body className="min-h-screen bg-background font-sans antialiased" suppressHydrationWarning>
-        <SessionProvider>
-          <SurveyProvider>{children}</SurveyProvider>
-        </SessionProvider>
+    <html lang="en" suppressHydrationWarning>
+      <body className="min-h-screen bg-background font-sans antialiased">
+        <Providers>{children}</Providers>
       </body>
     </html>
   );

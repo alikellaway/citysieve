@@ -1,0 +1,17 @@
+export const HIGHLIGHT_LABELS: Record<string, string> = {
+  supermarkets: 'Supermarkets',
+  highStreet: 'High street',
+  pubsBars: 'Pubs & bars',
+  restaurantsCafes: 'Dining out',
+  parksGreenSpaces: 'Green spaces',
+  gymsLeisure: 'Gyms & leisure',
+  healthcare: 'Healthcare',
+  librariesCulture: 'Culture',
+  publicTransport: 'Public transport',
+  trainStation: 'Train access',
+  greenSpaces: 'Green spaces',
+  peaceAndQuiet: 'Peace & quiet',
+  commute: 'Short commute',
+  familyProximity: 'Near family',
+  socialScene: 'Social scene',
+};

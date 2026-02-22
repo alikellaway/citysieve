@@ -12,7 +12,9 @@ All types used across the app are defined here. Read this file first when workin
 
 `CommuteStep` fields: `workLocation`, `daysPerWeek`, `maxCommuteTime`, `commuteTimeIsHardCap` (boolean, default `true`), `commuteModes`. When `commuteTimeIsHardCap` is `true`, areas whose estimated commute exceeds `maxCommuteTime` are eliminated from results. When `false`, they are penalised (score 0 on the commute dimension) but not excluded.
 
-**Top-level state**: `SurveyState` — contains all 6 step interfaces + `currentStep: number`
+**Top-level state**: `SurveyState` — contains all 6 step interfaces + `currentStep: number` + `surveyMode: 'full' | 'quick' | null`.
+
+`surveyMode` is `null` for surveys started before this field was added or for in-progress full surveys. It is set to `'quick'` when `buildQuickSurveyState()` is used. The results page checks this to show/hide the "upgrade to full survey" prompt.
 
 ## Steps (`src/lib/survey/steps.ts`)
 
@@ -61,6 +63,28 @@ Zod schemas for each step: `profileSchema`, `commuteSchema`, `familySchema`, `li
 Notable refinements:
 - `commuteSchema` — requires at least one commute mode if `daysPerWeek > 0`; includes `commuteTimeIsHardCap: z.boolean().default(true)`
 - `familySchema` — requires `schoolPriority` when `childrenStatus !== 'no'`
+
+## Quick Survey (`src/app/quick-survey/`, `src/lib/survey/quickDefaults.ts`)
+
+The quick survey is a separate single-page route at `/quick-survey` that collects ~4 essential questions and immediately navigates to `/results`.
+
+### Flow
+1. Page mounts → calls `reset()` to clear any existing state
+2. User answers 4 questions (location, commute, area type, priorities)
+3. Submit → `buildQuickSurveyState(answers)` constructs a full `SurveyState` with smart defaults → `loadState(state)` → `router.push('/results')`
+
+### `buildQuickSurveyState(answers)` (`src/lib/survey/quickDefaults.ts`)
+Takes a `QuickSurveyAnswers` object and returns a complete `SurveyState`:
+- **Profile**: all `null` (not asked; doesn't affect scoring)
+- **Commute**: from answers; `daysPerWeek = isRemote ? 0 : 5`
+- **Lifestyle / Transport / Environment / Family Likert values**: selected priority chips → `5`, unselected → `2`, if none selected → `3` (neutral)
+- **`surveyMode: 'quick'`**
+
+### Priority chips (`QuickPriorityKey`)
+13 chips drawn from the scoring weight dimensions. Exported constants `QUICK_PRIORITY_KEYS` and `QUICK_PRIORITY_LABELS` keep chip labels in sync with `HIGHLIGHT_LABELS`.
+
+### Upgrade prompt
+`src/app/results/page.tsx` renders a "Refine with Full Survey" banner when `state.surveyMode === 'quick'`. Linking to `/survey/profile` carries over the quick-survey state since it's already in `localStorage`.
 
 ## How to add a new survey step
 

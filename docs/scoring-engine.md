@@ -95,6 +95,10 @@ Speed assumptions (km/h): drive=30, train=50 (+10min overhead), bus=15, cycle=15
 - `socialScene` from family `socialImportance`
 - `commute` = `daysPerWeek / 5`
 
+### Labels (`src/lib/scoring/labels.ts`)
+
+`HIGHLIGHT_LABELS` — shared lookup mapping internal scoring keys (e.g. `pubsBars`, `parksGreenSpaces`) to friendly display labels. Used by `ResultCard` for both highlight badges and the score breakdown.
+
 ### ScoredArea output
 
 ```ts
@@ -103,9 +107,18 @@ interface ScoredArea {
   score: number;          // 0-100, rounded to 1 decimal
   highlights: string[];   // top 3 scoring category names
   breakdown: Record<string, number>; // per-category scores (0-100)
+  weights: ScoringWeights; // user's weight per dimension (for breakdown UI)
 }
 ```
 
 ## Reverse geocoding
 
-After scoring, the results page reverse-geocodes each top-10 area's coordinates via `/api/geocode?q=lat,lng` to get a human-readable name (first two parts of `display_name`).
+After scoring, the results page reverse-geocodes each top-10 area's coordinates via `/api/geocode?q=lat,lng` to get a human-readable name.
+
+**Name extraction priority** (uses Nominatim `address` object):
+```
+suburb → village → hamlet → city_district → town → city
+```
+Falls back to the first segment of `display_name` if no address parts match.
+
+**Cardinal direction prefixes** are added for city/town/city_district level names when the result is >1.5km from the search centre. Format: `"North Manchester"` (prefix style). Suburbs and villages keep their original names without prefixes.

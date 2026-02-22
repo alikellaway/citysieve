@@ -60,6 +60,7 @@ const initialState: SurveyState = {
     consideringAreas: [],
   },
   currentStep: 1,
+  surveyMode: null,
 };
 
 type SurveyAction =
@@ -122,6 +123,7 @@ function loadState(): SurveyState {
         lifestyle: { ...initialState.lifestyle, ...parsed.lifestyle },
         transport: { ...initialState.transport, ...parsed.transport },
         environment: { ...initialState.environment, ...parsed.environment },
+        surveyMode: parsed.surveyMode ?? null,
       };
     }
   } catch {
