@@ -44,10 +44,14 @@ NEXTAUTH_URL=https://citysieve.com
 GOOGLE_CLIENT_ID=<from Google Cloud Console>
 GOOGLE_CLIENT_SECRET=<from Google Cloud Console>
 NEXT_PUBLIC_BMAC_USERNAME=alike
-NEXT_PUBLIC_AWIN_ID=           # optional
-NEXT_PUBLIC_SPONSORED_URL=     # optional
-NEXT_PUBLIC_SPONSORED_LABEL=   # optional
-NEXT_PUBLIC_SPONSORED_TEXT=    # optional
+NEXT_PUBLIC_AWIN_ID=                    # optional — Awin publisher ID for Rightmove/Zoopla affiliate links
+NEXT_PUBLIC_SPONSORED_URL=              # optional — sponsored slot in area modal
+NEXT_PUBLIC_SPONSORED_LABEL=            # optional
+NEXT_PUBLIC_SPONSORED_TEXT=             # optional
+NEXT_PUBLIC_ADSENSE_PUB_ID=             # optional — ca-pub-XXXXXXXXXXXXXXXXX; activates AdSense display ads
+NEXT_PUBLIC_ADSENSE_SLOT_INLINE=        # optional — slot ID for inline banner (results page, every 3rd card)
+NEXT_PUBLIC_ADSENSE_SLOT_LEADERBOARD=   # optional — slot ID for leaderboard (landing page)
+NEXT_PUBLIC_ADSENSE_SLOT_RECTANGLE=     # optional — slot ID for rectangle (results page + area modal)
 ```
 
 > **Important — build-time env vars**: `NEXT_PUBLIC_*` variables are inlined

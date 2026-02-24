@@ -1,3 +1,5 @@
+import { type CandidateArea } from './area-generator';
+
 export interface PostcodeResult {
   outcode: string;
   placeName: string | null;
@@ -62,4 +64,73 @@ export async function getPostcodeDistrict(lat: number, lng: number): Promise<Pos
   } catch {
     return null;
   }
+}
+
+interface BulkGeolocation {
+  longitude: number;
+  latitude: number;
+}
+
+interface BulkPostcodesResponse {
+  status: number;
+  result: Array<{
+    query: string;
+    result: {
+      outcode: string;
+      admin_ward: string | null;
+      admin_district: string | null;
+    } | null;
+  }> | null;
+}
+
+export async function filterValidCandidates(
+  candidates: CandidateArea[]
+): Promise<CandidateArea[]> {
+  const BATCH_SIZE = 100;
+  const validCandidates: CandidateArea[] = [];
+
+  for (let i = 0; i < candidates.length; i += BATCH_SIZE) {
+    const batch = candidates.slice(i, i + BATCH_SIZE);
+
+    const geolocations: BulkGeolocation[] = batch.map((c) => ({
+      longitude: c.lng,
+      latitude: c.lat,
+    }));
+
+    try {
+      const res = await fetch('https://api.postcodes.io/postcodes', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'User-Agent': 'CitySieve/1.0' },
+        body: JSON.stringify({
+          geolocations,
+          radius: 2000,
+          limit: 1,
+        }),
+      });
+
+      if (!res.ok) {
+        for (const c of batch) {
+          validCandidates.push(c);
+        }
+        continue;
+      }
+
+      const data: BulkPostcodesResponse = await res.json();
+
+      if (data.status === 200 && data.result) {
+        for (let j = 0; j < batch.length; j++) {
+          const lookupResult = data.result[j];
+          if (lookupResult?.result) {
+            validCandidates.push(batch[j]);
+          }
+        }
+      }
+    } catch {
+      for (const c of batch) {
+        validCandidates.push(c);
+      }
+    }
+  }
+
+  return validCandidates;
 }

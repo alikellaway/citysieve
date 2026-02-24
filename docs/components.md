@@ -30,15 +30,29 @@ All components are in `src/components/`.
 ## Ads
 
 ### `AdSlot` (`ads/AdSlot.tsx`)
-- Placeholder ad component using CVA variants with responsive sizing
+- Server component. Renders a Google AdSense `<ins>` unit when both `NEXT_PUBLIC_ADSENSE_PUB_ID` and the variant-specific slot ID env var are set. Falls back to a placeholder box otherwise, so layout is unchanged in development.
 - **Props**: `variant` ('inline' | 'leaderboard' | 'rectangle'), `className`
-- **Responsive sizes**:
-  - `inline`: 320×50 (mobile) → 728×90 (tablet/desktop) — for inserting between content
-  - `leaderboard`: 320×50 (mobile) → 728×90 (tablet) → 970×90 (desktop) — for full-width page placements
-  - `rectangle`: 300×250 (all breakpoints) — fixed MREC size
-- **Size labels**: Breakpoint-aware — shows current size based on viewport
-- Used on: landing page (`leaderboard`), results page between cards (`inline`)
-- To add real ads: replace the inner content with the ad provider's script; sizing/positioning stays the same
+- **Responsive sizes** (used by the placeholder; AdSense auto-sizes via `data-ad-format="auto"` in the real path):
+  - `inline`: 320×50 (mobile) → 728×90 (tablet/desktop) — between content cards
+  - `leaderboard`: 320×50 (mobile) → 728×90 (tablet) → 970×90 (desktop) — full-width page placements
+  - `rectangle`: 300×250 (all breakpoints) — fixed MREC
+- **Real ad path**: Renders `<ins class="adsbygoogle" data-ad-client={PUB_ID} data-ad-slot={slotId} data-ad-format="auto" data-full-width-responsive="true" />` plus `<AdSlotPusher />` to call `adsbygoogle.push({})`
+- **Env vars required** (baked in at Docker build time):
+  - `NEXT_PUBLIC_ADSENSE_PUB_ID` — your AdSense publisher ID (`ca-pub-XXXXXXXXXXXXXXXXX`)
+  - `NEXT_PUBLIC_ADSENSE_SLOT_INLINE` — ad unit slot ID for the inline variant
+  - `NEXT_PUBLIC_ADSENSE_SLOT_LEADERBOARD` — ad unit slot ID for the leaderboard variant
+  - `NEXT_PUBLIC_ADSENSE_SLOT_RECTANGLE` — ad unit slot ID for the rectangle variant
+- **Placements**:
+  - Landing page: `leaderboard` below the hero CTA
+  - Results page: `inline` after every 3rd result card (suppressed at ring boundaries); `rectangle` before action buttons
+  - Area modal: `rectangle` at the bottom of the right panel — only when `NEXT_PUBLIC_SPONSORED_URL` is not set (sponsored slot takes priority)
+- **AdSense global script**: Loaded via `<Script>` in `layout.tsx` — only injected when `NEXT_PUBLIC_ADSENSE_PUB_ID` is set
+
+### `AdSlotPusher` (`ads/AdSlotPusher.tsx`)
+- Thin `'use client'` component that calls `window.adsbygoogle.push({})` in a `useEffect`
+- Kept separate from `AdSlot` so `AdSlot` can remain a server component — avoids making the landing page or any other parent a client component
+- Renders `null` (no DOM output); only exists to trigger the AdSense initialisation side-effect
+- Errors from duplicate push calls (common in HMR) are silently swallowed
 
 ## Donation
 
@@ -88,6 +102,7 @@ All components are in `src/components/`.
 - **Resource link grid (2×3)**: Google Maps, Street View, Rightmove, Zoopla, Schools (DfE), Crime stats — all open in new tab
 - **Awin affiliate wrapping**: When `NEXT_PUBLIC_AWIN_ID` is set, Rightmove (mid 2047) and Zoopla (mid 2623) links are wrapped via `awin1.com`
 - **Sponsored slot**: Rendered only when `NEXT_PUBLIC_SPONSORED_URL` is set; shows a "Sponsored" chip, sponsor name (`NEXT_PUBLIC_SPONSORED_LABEL`), tagline (`NEXT_PUBLIC_SPONSORED_TEXT`), and link
+- **AdSense rectangle**: Rendered at the bottom of the right panel only when `NEXT_PUBLIC_SPONSORED_URL` is **not** set and `NEXT_PUBLIC_ADSENSE_PUB_ID` is set — the sponsored slot always takes priority
 
 ### `AreaModalMap` (`results/AreaModalMap.tsx`)
 - **Props**: `center: { lat, lng }`, `pois: Poi[]`, `activeFilter: AmenityCategory | 'all'`, `onPoiClick?: (poi: Poi) => void`

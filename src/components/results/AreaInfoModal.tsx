@@ -20,6 +20,7 @@ import { Loader2, Home, Map, Search, GraduationCap, Shield, ExternalLink } from 
 import type { ScoredArea } from '@/lib/scoring/engine';
 import { AmenityGrid } from './AmenityGrid';
 import type { Poi, AmenityCategory } from '@/lib/poi-types';
+import { AdSlot } from '@/components/ads/AdSlot';
 
 const AreaModalMap = dynamic(
   () => import('./AreaModalMap').then((m) => m.AreaModalMap),
@@ -46,6 +47,7 @@ const AWIN_ID = process.env.NEXT_PUBLIC_AWIN_ID;
 const SPONSORED_URL = process.env.NEXT_PUBLIC_SPONSORED_URL;
 const SPONSORED_LABEL = process.env.NEXT_PUBLIC_SPONSORED_LABEL;
 const SPONSORED_TEXT = process.env.NEXT_PUBLIC_SPONSORED_TEXT;
+const ADSENSE_PUB_ID = process.env.NEXT_PUBLIC_ADSENSE_PUB_ID;
 
 const RIGHTMOVE_MID = '2047';
 const ZOOPLA_MID = '2623';
@@ -317,6 +319,13 @@ export function AreaInfoModal({ area, onClose }: AreaInfoModalProps) {
                 >
                   Learn more ↗
                 </a>
+              </div>
+            )}
+
+            {/* Show AdSense rectangle only when no sponsored slot is configured */}
+            {!SPONSORED_URL && ADSENSE_PUB_ID && (
+              <div className="flex justify-center pt-2">
+                <AdSlot variant="rectangle" />
               </div>
             )}
           </div>

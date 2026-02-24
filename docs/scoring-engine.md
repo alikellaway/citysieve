@@ -33,8 +33,21 @@ State involved: `resultRings: ResultRing[]` (accumulates rings), `searchedRadius
 
 - **centre** = user's work location or family location, falling back to `[53.48, -2.24]` (Manchester)
 - **radiusKm** = 20 (default)
-- **spacingKm** = 3 (default)
+- **spacingKm** = 3 (default) — but see smart density below
 - Returns `CandidateArea[]` with `{ id, name: '', lat, lng }` — name is populated later via postcode lookup
+
+### Smart density (`results/page.tsx` — `generateValidCandidates`)
+
+After generating the initial grid, `filterValidCandidates()` (postcodes.io bulk API, 2km radius) discards points over the sea or with no UK postcode nearby. For coastal searches (e.g., Brighton, Bournemouth), a large portion of the 20km radius may be over sea — resulting in significantly fewer viable candidates than an inland search.
+
+To compensate, `generateValidCandidates()` applies a smart density fallback:
+
+1. Generate at standard 3km spacing, run the sea filter.
+2. If fewer than 100 valid points remain (≥37% of grid was sea), compute `landRatio = valid / raw`.
+3. Calculate a denser spacing: `newSpacing = 3 × √landRatio`, clamped to `[1.8, 2.5]` km.
+4. Regenerate and re-filter with the denser spacing.
+
+This ensures coastal users receive a comparable number of scored areas to inland users, with no impact on performance for fully inland searches.
 
 ## Amenity fetching
 

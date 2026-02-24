@@ -133,9 +133,21 @@ function InteractionHandler({ onInteractionChange }: { onInteractionChange: (int
   return null;
 }
 
-function SonarPulse() {
+function MovementHandler({ onMoveChange }: { onMoveChange: (moving: boolean) => void }) {
+  useMapEvents({
+    movestart: () => onMoveChange(true),
+    moveend: () => onMoveChange(false),
+  });
+  return null;
+}
+
+function SonarPulse({ isMoving }: { isMoving: boolean }) {
   return (
-    <div className="relative flex items-center justify-center">
+    <div 
+      className={`relative flex items-center justify-center transition-all duration-300 ease-in-out ${
+        isMoving ? 'scale-0 opacity-0' : 'scale-100 opacity-100'
+      }`}
+    >
       {/* Centre dot */}
       <div className="absolute z-10 h-3 w-3 rounded-full bg-indigo-500/80 dark:bg-indigo-400/80" />
       {/* Three rings, staggered 0.8s apart */}
@@ -170,6 +182,7 @@ export function LoadingMap({ centre, onMapReady, activeCandidateIndex = 0, candi
   const tile = resolvedTheme === 'dark' ? TILE_LAYERS.dark : TILE_LAYERS.light;
   const [tilesLoading, setTilesLoading] = useState(true);
   const [userInteracting, setUserInteracting] = useState(false);
+  const [isMoving, setIsMoving] = useState(false);
 
   const handleMapReady = useCallback((map: L.Map) => {
     onMapReady?.(map);
@@ -197,6 +210,7 @@ export function LoadingMap({ centre, onMapReady, activeCandidateIndex = 0, candi
           enabled={!userInteracting}
         />
         <InteractionHandler onInteractionChange={setUserInteracting} />
+        <MovementHandler onMoveChange={setIsMoving} />
       </MapContainer>
 
       {/* Sonar pulse — centred over the map, pointer-events-none so map interaction still works */}
@@ -204,7 +218,7 @@ export function LoadingMap({ centre, onMapReady, activeCandidateIndex = 0, candi
         className="absolute inset-0 flex items-center justify-center pointer-events-none overflow-hidden"
         style={{ zIndex: 1000 }}
       >
-        <SonarPulse />
+        <SonarPulse isMoving={isMoving} />
       </div>
 
       {tilesLoading && (

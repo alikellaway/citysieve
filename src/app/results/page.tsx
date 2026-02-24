@@ -8,7 +8,7 @@ import { useRouter } from 'next/navigation';
 import { useSession } from 'next-auth/react';
 import { useSurvey } from '@/hooks/useSurvey';
 import { generateCandidateAreas, type CandidateArea } from '@/lib/data/area-generator';
-import { getPostcodeDistrict } from '@/lib/data/postcode';
+import { getPostcodeDistrict, filterValidCandidates } from '@/lib/data/postcode';
 import { bestCommuteTime, commuteBreakdown, haversineDistance } from '@/lib/scoring/commute';
 import { scoreAndRankAreas, getFilterStatus, type AreaProfile, type ScoredArea } from '@/lib/scoring/engine';
 import { ResultCard } from '@/components/results/ResultCard';
@@ -108,6 +108,42 @@ const LoadingMap = dynamic(
   { ssr: false, loading: () => <div className="h-[calc(100vh-180px)] w-full animate-pulse bg-muted" /> }
 );
 
+/**
+ * Generates candidate areas for a given centre and radius, using a smart density
+ * adjustment to compensate when a large portion of the grid falls over the sea.
+ *
+ * Strategy:
+ * 1. Generate a standard 3km-spaced grid and filter non-UK-land points.
+ * 2. If fewer than 100 valid points remain (≥37% lost to sea), the land ratio is
+ *    used to calculate a denser spacing: newSpacing = 3 * sqrt(landRatio).
+ *    This is bounded to [1.8, 2.5] km to avoid overloading Overpass / postcodes.io.
+ * 3. Regenerate and re-filter with the denser spacing.
+ */
+async function generateValidCandidates(
+  centre: GeoLocation,
+  radiusKm: number
+): Promise<import('@/lib/data/area-generator').CandidateArea[]> {
+  const STANDARD_SPACING = 3;
+  const MINIMUM_ACCEPTABLE = 100;
+
+  const rawCandidates = generateCandidateAreas(centre, radiusKm, STANDARD_SPACING);
+  const validCandidates = await filterValidCandidates(rawCandidates);
+
+  if (validCandidates.length >= MINIMUM_ACCEPTABLE) {
+    return validCandidates;
+  }
+
+  // Too many points lost to the sea — increase density proportionally.
+  const landRatio = rawCandidates.length > 0
+    ? validCandidates.length / rawCandidates.length
+    : 1;
+  const rawSpacing = STANDARD_SPACING * Math.sqrt(landRatio);
+  const denseSpacing = Math.max(1.8, Math.min(rawSpacing, 2.5));
+
+  const denseCandidates = generateCandidateAreas(centre, radiusKm, denseSpacing);
+  return filterValidCandidates(denseCandidates);
+}
+
 async function fetchAmenities(lat: number, lng: number): Promise<Record<string, number>> {
   const res = await fetch(`/api/overpass?lat=${lat}&lng=${lng}&radius=1000`);
   if (!res.ok) throw new Error('Failed to fetch amenities');
@@ -181,7 +217,7 @@ export default function ResultsPage() {
 
       centreRef.current = centre;
 
-      const allCandidates = generateCandidateAreas(centre, 20, 3);
+      const allCandidates = await generateValidCandidates(centre, 20);
       setCandidates(allCandidates);
 
       const initialStatus = new Map<string, CandidateStatus>();
@@ -371,10 +407,21 @@ export default function ResultsPage() {
 
     setIsLoadingMore(true);
     try {
-      const allCandidates = generateCandidateAreas(centre, outerKm, 3);
-      const candidates = allCandidates.filter((c) =>
-        haversineDistance(centre.lat, centre.lng, c.lat, c.lng) > innerKm
-      );
+      const STANDARD_SPACING = 3;
+      const MINIMUM_ACCEPTABLE = 100;
+
+      const ringFilter = (cs: import('@/lib/data/area-generator').CandidateArea[]) =>
+        cs.filter((c) => haversineDistance(centre.lat, centre.lng, c.lat, c.lng) > innerKm);
+
+      const rawRing = ringFilter(generateCandidateAreas(centre, outerKm, STANDARD_SPACING));
+      let candidates = await filterValidCandidates(rawRing);
+
+      if (candidates.length < MINIMUM_ACCEPTABLE) {
+        const landRatio = rawRing.length > 0 ? candidates.length / rawRing.length : 1;
+        const denseSpacing = Math.max(1.8, Math.min(STANDARD_SPACING * Math.sqrt(landRatio), 2.5));
+        const denseRing = ringFilter(generateCandidateAreas(centre, outerKm, denseSpacing));
+        candidates = await filterValidCandidates(denseRing);
+      }
 
       const BATCH_SIZE = 4;
       const areaProfiles: AreaProfile[] = [];
@@ -537,11 +584,26 @@ export default function ResultsPage() {
               <CardContent className="py-12 text-center">
                 <p className="text-lg font-medium">No matching areas found</p>
                 <p className="mt-2 text-sm text-muted-foreground">
-                  Try adjusting your preferences to broaden the search.
+                  Your preferences are quite specific. Try widening the search radius or adjusting a priority or two.
                 </p>
-                <Button className="mt-4" onClick={() => router.push('/survey/review')}>
-                  Back to Review
-                </Button>
+                <div className="mt-6 flex flex-col items-center gap-3">
+                  <Button onClick={handleSearchMore} disabled={isLoadingMore}>
+                    {isLoadingMore
+                      ? `Searching ${searchedRadiusKm}–${searchedRadiusKm + 20} km...`
+                      : "Search a wider area"}
+                  </Button>
+                  <p className="text-xs text-muted-foreground">
+                    Searches up to {searchedRadiusKm + 20} km from your centre
+                  </p>
+                  <Button
+                    variant="outline"
+                    onClick={() =>
+                      router.push(state.surveyMode === 'quick' ? '/quick-survey' : '/survey/review')
+                    }
+                  >
+                    Back to survey
+                  </Button>
+                </div>
               </CardContent>
             </Card>
           ) : (
@@ -588,7 +650,9 @@ export default function ResultsPage() {
                                 onExplore={() => setModalArea(result)}
                               />
                             </div>
-                            {(cardIndex + 1) % 3 === 0 && cardIndex < allResults.length - 1 && (
+                            {(cardIndex + 1) % 3 === 0 &&
+                              cardIndex < allResults.length - 1 &&
+                              itemIdx < ring.items.length - 1 && (
                               <AdSlot variant="inline" />
                             )}
                           </React.Fragment>
@@ -610,6 +674,10 @@ export default function ResultsPage() {
               )}
 
               <AreaInfoModal area={modalArea} onClose={() => setModalArea(null)} />
+
+              <div className="flex justify-center py-2">
+                <AdSlot variant="rectangle" />
+              </div>
 
               <div className="flex flex-col items-center gap-4 pt-4">
                 <Button
@@ -660,8 +728,13 @@ export default function ResultsPage() {
             <CardContent className="py-12 text-center">
               <p className="text-lg font-medium text-destructive">Error</p>
               <p className="mt-2 text-sm text-muted-foreground">{error}</p>
-              <Button className="mt-4" onClick={() => router.push('/survey/review')}>
-                Back to Review
+              <Button
+                className="mt-4"
+                onClick={() =>
+                  router.push(state.surveyMode === 'quick' ? '/quick-survey' : '/survey/review')
+                }
+              >
+                {state.surveyMode === 'quick' ? 'Back to Survey' : 'Back to Review'}
               </Button>
             </CardContent>
           </Card>

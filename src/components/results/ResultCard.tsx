@@ -3,6 +3,8 @@
 import { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { ChevronDown, ChevronUp, ArrowRight } from 'lucide-react';
 import type { ScoredArea } from '@/lib/scoring/engine';
 import { HIGHLIGHT_LABELS } from '@/lib/scoring/labels';
 import { cn } from '@/lib/utils';
@@ -105,20 +107,25 @@ export function ResultCard({ result, rank, isActive, isHovered, onClick, onHover
             </Badge>
           ))}
         </div>
-        <button
-          className="mt-3 text-xs text-muted-foreground hover:text-foreground transition-colors"
+        <Button
+          variant="ghost"
+          size="sm"
+          className="mt-3 w-full justify-start sm:w-auto px-2 -ml-2 text-xs text-muted-foreground hover:text-foreground"
           onClick={(e) => { e.stopPropagation(); setShowBreakdown(!showBreakdown); }}
         >
-          {showBreakdown ? '▲' : '▼'} Score breakdown
-        </button>
+          {showBreakdown ? <ChevronUp className="mr-1.5 h-3.5 w-3.5" /> : <ChevronDown className="mr-1.5 h-3.5 w-3.5" />}
+          Score breakdown
+        </Button>
         {showBreakdown && <ScoreBreakdown result={result} />}
-        <div className="mt-3 flex justify-end">
-          <button
-            className="text-sm font-medium text-primary underline underline-offset-2 hover:no-underline"
+        <div className="mt-4 flex sm:justify-end">
+          <Button
+            size="sm"
+            className="w-full sm:w-auto"
             onClick={(e) => { e.stopPropagation(); onExplore(); }}
           >
-            Explore area →
-          </button>
+            Explore area
+            <ArrowRight className="ml-2 h-4 w-4" />
+          </Button>
         </div>
       </CardContent>
     </Card>

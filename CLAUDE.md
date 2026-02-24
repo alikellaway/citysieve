@@ -29,6 +29,7 @@ NEXT_PUBLIC_AWIN_ID=          # Optional: Awin affiliate ID for Rightmove/Zoopla
 NEXT_PUBLIC_SPONSORED_URL=    # Optional: URL for sponsored slot in area modal
 NEXT_PUBLIC_SPONSORED_LABEL=  # Optional: Sponsor name (e.g. "Habito")
 NEXT_PUBLIC_SPONSORED_TEXT=   # Optional: Short tagline (e.g. "Find your best mortgage")
+NEXT_PUBLIC_ADSENSE_PUB_ID=   # Optional: Google AdSense display ads (e.g. "ca-pub-1815955226233160")
 ```
 
 ## Critical Gotchas

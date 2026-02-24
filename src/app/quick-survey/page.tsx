@@ -292,7 +292,7 @@ export default function QuickSurveyPage() {
       {/* Submit */}
       <div className="flex flex-col items-center gap-2 pb-8">
         <Button size="lg" className="w-full sm:w-auto sm:px-12" onClick={handleSubmit}>
-          Find My Neighbourhoods
+          Find where to live
         </Button>
         <p className="text-xs text-muted-foreground">
           All questions are optional — we&apos;ll use sensible defaults for anything left blank.
