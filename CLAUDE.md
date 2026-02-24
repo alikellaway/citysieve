@@ -55,6 +55,7 @@ Read these on-demand based on the task at hand:
 | Adding/modifying API routes, understanding endpoints | [docs/api-routes.md](docs/api-routes.md) |
 | Auth, NextAuth config, Prisma schema, database changes | [docs/auth-database.md](docs/auth-database.md) |
 | Modifying UI components, understanding props/behavior | [docs/components.md](docs/components.md) |
+| VPS setup, Docker, Nginx, SSL, CI/CD deploy pipeline | [docs/deployment.md](docs/deployment.md) |
 
 ## Docs Maintenance
 
@@ -68,6 +69,7 @@ When modifying code, update the corresponding doc file:
 | `src/app/api/` | `docs/api-routes.md` |
 | `src/lib/auth.ts`, `src/lib/db.ts`, `prisma/schema.prisma` | `docs/auth-database.md` |
 | `src/components/` | `docs/components.md` |
+| `Dockerfile`, `docker-compose.yml`, `nginx/`, `.github/workflows/` | `docs/deployment.md` |
 
 ## Sub-Agents
 
