@@ -53,7 +53,7 @@ const initialState: SurveyState = {
     broadbandImportance: 3,
   },
   environment: {
-    areaType: null,
+    areaTypes: [],
     peaceAndQuiet: 3,
     developmentFeeling: null,
     excludeAreas: [],
@@ -111,19 +111,27 @@ function loadState(): SurveyState {
   try {
     const stored = localStorage.getItem(STORAGE_KEY);
     if (stored) {
-      const parsed = JSON.parse(stored) as SurveyState;
+      const parsed = JSON.parse(stored) as Record<string, unknown>;
+      const env = parsed.environment as Record<string, unknown> | undefined;
+      // Migration: areaType (single) -> areaTypes (array)
+      if (env && 'areaType' in env && !('areaTypes' in env)) {
+        const oldAreaType = env.areaType as string | null;
+        env.areaTypes = oldAreaType ? [oldAreaType] : [];
+        delete env.areaType;
+      }
       // Merge with initialState to fill in any fields added after the stored
       // state was written (e.g. commuteTimeIsHardCap for existing sessions).
+      const typed = parsed as unknown as SurveyState;
       return {
         ...initialState,
-        ...parsed,
-        commute: { ...initialState.commute, ...parsed.commute },
-        profile: { ...initialState.profile, ...parsed.profile },
-        family: { ...initialState.family, ...parsed.family },
-        lifestyle: { ...initialState.lifestyle, ...parsed.lifestyle },
-        transport: { ...initialState.transport, ...parsed.transport },
-        environment: { ...initialState.environment, ...parsed.environment },
-        surveyMode: parsed.surveyMode ?? null,
+        ...typed,
+        commute: { ...initialState.commute, ...typed.commute },
+        profile: { ...initialState.profile, ...typed.profile },
+        family: { ...initialState.family, ...typed.family },
+        lifestyle: { ...initialState.lifestyle, ...typed.lifestyle },
+        transport: { ...initialState.transport, ...typed.transport },
+        environment: { ...initialState.environment, ...typed.environment },
+        surveyMode: typed.surveyMode ?? null,
       };
     }
   } catch {

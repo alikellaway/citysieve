@@ -7,7 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
 import { Slider } from '@/components/ui/slider';
 import { Switch } from '@/components/ui/switch';
-import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
+import { Checkbox } from '@/components/ui/checkbox';
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
 import { Button } from '@/components/ui/button';
 import { LocationAutocomplete } from '@/components/survey/LocationAutocomplete';
@@ -54,7 +54,7 @@ export default function QuickSurveyPage() {
   const [maxCommuteTime, setMaxCommuteTime] = useState(45);
 
   // Q3 — Area type
-  const [areaType, setAreaType] = useState<AreaType | null>(null);
+  const [areaTypes, setAreaTypes] = useState<AreaType[]>([]);
 
   // Q4 — Priorities
   const [topPriorities, setTopPriorities] = useState<QuickPriorityKey[]>([]);
@@ -65,13 +65,29 @@ export default function QuickSurveyPage() {
     );
   }
 
+  const [noPreference, setNoPreference] = useState(true);
+
+  function toggleAreaType(value: AreaType) {
+    setNoPreference(false);
+    setAreaTypes((prev) =>
+      prev.includes(value) ? prev.filter((t) => t !== value) : [...prev, value],
+    );
+  }
+
+  function toggleNoPreference(checked: boolean) {
+    setNoPreference(checked);
+    if (checked) {
+      setAreaTypes([]);
+    }
+  }
+
   function handleSubmit() {
     const state = buildQuickSurveyState({
       workLocation,
       isRemote,
       commuteModes,
       maxCommuteTime,
-      areaType,
+      areaTypes,
       topPriorities,
     });
     loadState(state);
@@ -86,7 +102,7 @@ export default function QuickSurveyPage() {
       <div className="text-center">
         <h1 className="text-2xl font-bold tracking-tight">Quick Start</h1>
         <p className="mt-2 text-muted-foreground">
-          Answer a few questions and we'll find your ideal neighbourhood in minutes.
+          Answer a few questions and we&apos;ll find your ideal neighbourhood in minutes.
         </p>
       </div>
 
@@ -116,7 +132,7 @@ export default function QuickSurveyPage() {
                 I work fully remotely
               </Label>
               <p className="text-xs text-muted-foreground">
-                We'll use the wider UK as your search area.
+                We&apos;ll use the wider UK as your search area.
               </p>
             </div>
             <Switch
@@ -192,24 +208,41 @@ export default function QuickSurveyPage() {
           </CardTitle>
         </CardHeader>
         <CardContent>
-          <RadioGroup
-            value={areaType ?? ''}
-            onValueChange={(val) => setAreaType(val as AreaType)}
-            className="space-y-2"
-          >
+          <div className="space-y-2">
             {AREA_TYPE_OPTIONS.map((opt) => (
               <div
                 key={opt.value}
-                className="flex items-start space-x-3 rounded-lg border border-border px-4 py-3 has-[[data-state=checked]]:border-primary has-[[data-state=checked]]:bg-primary/5"
+                className={[
+                  'flex items-start space-x-3 rounded-lg border border-border px-4 py-3',
+                  areaTypes.includes(opt.value) ? 'border-primary bg-primary/5' : '',
+                ].join(' ')}
               >
-                <RadioGroupItem value={opt.value} id={`area-${opt.value}`} className="mt-0.5" />
-                <Label htmlFor={`area-${opt.value}`} className="cursor-pointer space-y-0.5">
+                <Checkbox
+                  id={`area-${opt.value}`}
+                  checked={areaTypes.includes(opt.value)}
+                  onCheckedChange={() => toggleAreaType(opt.value)}
+                  className="mt-0.5"
+                />
+                <Label
+                  htmlFor={`area-${opt.value}`}
+                  className="cursor-pointer space-y-0.5"
+                >
                   <span className="font-medium">{opt.label}</span>
                   <span className="block text-xs text-muted-foreground">{opt.description}</span>
                 </Label>
               </div>
             ))}
-          </RadioGroup>
+            <div className="flex items-center space-x-3 rounded-lg border border-border px-4 py-3 mt-2">
+              <Checkbox
+                id="area-no-preference"
+                checked={noPreference}
+                onCheckedChange={(checked) => toggleNoPreference(checked as boolean)}
+              />
+              <Label htmlFor="area-no-preference" className="cursor-pointer">
+                No preference
+              </Label>
+            </div>
+          </div>
         </CardContent>
       </Card>
 
@@ -262,7 +295,7 @@ export default function QuickSurveyPage() {
           Find My Neighbourhoods
         </Button>
         <p className="text-xs text-muted-foreground">
-          All questions are optional — we'll use sensible defaults for anything left blank.
+          All questions are optional — we&apos;ll use sensible defaults for anything left blank.
         </p>
       </div>
     </div>

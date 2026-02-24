@@ -43,6 +43,11 @@ function label(map: keyof typeof LABEL_MAPS, val: string | null): string {
   return (LABEL_MAPS[map] as Record<string, string>)[val] ?? val;
 }
 
+function formatAreaTypes(areaTypes: string[]): string {
+  if (areaTypes.length === 0) return 'No preference';
+  return areaTypes.map((t) => (LABEL_MAPS.areaType as Record<string, string>)[t] ?? t).join(', ');
+}
+
 const AMENITY_LABELS: Record<string, string> = {
   supermarkets: 'Supermarkets',
   highStreet: 'High street',
@@ -210,8 +215,8 @@ export default function ReviewPage() {
           stepPath="/survey/environment"
         >
           <ReviewItem
-            label="Area type"
-            value={label('areaType', environment.areaType)}
+            label="Area types"
+            value={formatAreaTypes(environment.areaTypes)}
           />
           <ReviewItem
             label="Peace & quiet"

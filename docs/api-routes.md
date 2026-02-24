@@ -29,6 +29,23 @@ Proxies amenity queries to the Overpass API.
 - **Caching**: In-memory Map, 24h TTL, keyed by rounded coordinates (~500m precision via `Math.round(n * 200) / 200`)
 - **Rate limiting**: Returns 429 if Overpass returns non-JSON (its rate-limit signal). The results page handles this with retries.
 
+## GET /api/overpass/pois
+
+Fetches individual amenity POIs (points of interest) for the area modal map.
+
+- **Auth**: None
+- **Query params**: `lat`, `lng`, `radius` (default 1000m)
+- **Response**: JSON array of POI objects:
+  ```json
+  [
+    { "id": 123456, "lat": 51.5074, "lng": -0.1278, "name": "Tesco Express", "type": "Supermarket", "category": "supermarkets" },
+    { "id": 789012, "lat": 51.5080, "lng": -0.1285, "name": "The Crown", "type": "Pub", "category": "pubsBars" }
+  ]
+  ```
+- **Categories**: `supermarkets`, `pubsBars`, `restaurantsCafes`, `parksGreenSpaces`, `gymsLeisure`, `healthcare`, `librariesCulture`, `trainStation`, `busStop`
+- **Caching**: In-memory Map, 24h TTL, same coordinate rounding as `/api/overpass`
+- **Types**: See `src/lib/poi-types.ts` for `Poi`, `AmenityCategory`, `CATEGORY_CONFIG`
+
 ## GET /api/auth/[...nextauth]
 ## POST /api/auth/[...nextauth]
 

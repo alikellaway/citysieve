@@ -11,6 +11,7 @@ interface TagInputProps {
   label: string;
   placeholder?: string;
   enableAutocomplete?: boolean;
+  helperText?: string;
 }
 
 interface SearchResult {
@@ -28,6 +29,7 @@ export function TagInput({
   label,
   placeholder = "Type and press Enter...",
   enableAutocomplete = false,
+  helperText,
 }: TagInputProps) {
   const [input, setInput] = useState("");
   const [suggestions, setSuggestions] = useState<SearchResult[]>([]);
@@ -125,7 +127,12 @@ export function TagInput({
 
   return (
     <div className="space-y-2">
-      <label className="text-sm font-medium">{label}</label>
+      <div className="flex items-center justify-between gap-2">
+        <label className="text-sm font-medium">{label}</label>
+        {helperText && (
+          <span className="text-xs text-muted-foreground">{helperText}</span>
+        )}
+      </div>
       <div className="relative">
         <div
           className={cn(

@@ -1,7 +1,7 @@
 'use client';
 
-import { useEffect, useRef } from 'react';
-import { MapContainer, TileLayer, Marker, Popup, useMap } from 'react-leaflet';
+import { useEffect, useRef, useState } from 'react';
+import { MapContainer, TileLayer, Marker, Popup, useMap, useMapEvents } from 'react-leaflet';
 import L from 'leaflet';
 import { useTheme } from 'next-themes';
 import type { ScoredArea } from '@/lib/scoring/engine';
@@ -92,9 +92,18 @@ function FlyToActive({ results, activeIndex }: { results: ScoredArea[]; activeIn
   return null;
 }
 
+function TileLoadingIndicator({ onLoadingChange }: { onLoadingChange: (loading: boolean) => void }) {
+  useMapEvents({
+    loading: () => onLoadingChange(true),
+    load: () => onLoadingChange(false),
+  });
+  return null;
+}
+
 export function ResultMap({ results, activeIndex, hoverIndex, onMarkerClick, onMarkerHover }: ResultMapProps) {
   const mapRef = useRef<L.Map | null>(null);
   const { resolvedTheme } = useTheme();
+  const [tilesLoading, setTilesLoading] = useState(true);
 
   if (results.length === 0) return null;
 
@@ -109,6 +118,7 @@ export function ResultMap({ results, activeIndex, hoverIndex, onMarkerClick, onM
       className="h-[400px] w-full rounded-lg"
       ref={mapRef}
     >
+      <TileLoadingIndicator onLoadingChange={setTilesLoading} />
       <TileLayer
         key={tile.url}
         attribution={tile.attribution}
@@ -141,6 +151,14 @@ export function ResultMap({ results, activeIndex, hoverIndex, onMarkerClick, onM
         );
       })}
     </MapContainer>
+    {tilesLoading && (
+      <div className="absolute inset-0 z-10 flex items-center justify-center rounded-lg bg-background/80 backdrop-blur-sm">
+        <div className="flex flex-col items-center gap-2">
+          <div className="h-6 w-6 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+          <span className="text-sm text-muted-foreground">Loading map...</span>
+        </div>
+      </div>
+    )}
     </div>
   );
 }

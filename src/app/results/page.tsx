@@ -7,17 +7,22 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useSession } from 'next-auth/react';
 import { useSurvey } from '@/hooks/useSurvey';
-import { generateCandidateAreas } from '@/lib/data/area-generator';
+import { generateCandidateAreas, type CandidateArea } from '@/lib/data/area-generator';
+import { getPostcodeDistrict } from '@/lib/data/postcode';
 import { bestCommuteTime, commuteBreakdown, haversineDistance } from '@/lib/scoring/commute';
-import { scoreAndRankAreas, type AreaProfile, type ScoredArea } from '@/lib/scoring/engine';
+import { scoreAndRankAreas, getFilterStatus, type AreaProfile, type ScoredArea } from '@/lib/scoring/engine';
 import { ResultCard } from '@/components/results/ResultCard';
 import { AreaInfoModal } from '@/components/results/AreaInfoModal';
+import type { CandidateStatus } from '@/components/results/LoadingMap';
+import { LoadingOverlay } from '@/components/results/LoadingOverlay';
+import { LoadingProgressBar } from '@/components/results/LoadingProgressBar';
 import { AdSlot } from '@/components/ads/AdSlot';
 import { DonateButton } from '@/components/donate/DonateButton';
 import { SiteHeader } from '@/components/layout/SiteHeader';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import type { GeoLocation } from '@/lib/survey/types';
+import type L from 'leaflet';
 
 type NominatimAddress = {
   suburb?: string;
@@ -36,7 +41,7 @@ type NominatimResult = {
 function extractAreaName(data: NominatimResult[]): string | null {
   if (!data.length || !data[0].address) return null;
   const addr = data[0].address;
-  return addr.suburb || addr.village || addr.hamlet || 
+  return addr.suburb || addr.village || addr.hamlet ||
          addr.city_district || addr.town || addr.city || null;
 }
 
@@ -76,9 +81,31 @@ function getCardinalDirection(
   return null;
 }
 
+const FUN_PHRASES = [
+  "Counting cafes and coffee shops",
+  "Measuring green spaces",
+  "Checking train connections",
+  "Scouting local pubs",
+  "Hunting for supermarkets",
+  "Looking for gyms and leisure centres",
+  "Finding libraries and museums",
+  "Surveying restaurants",
+  "Mapping bus routes",
+  "Sniffing out bakeries",
+  "Counting GP surgeries",
+  "Checking for parks",
+  "Locating dog-friendly spots",
+  "Tallying up takeaways",
+];
+
 const ResultMap = dynamic(
   () => import('@/components/results/ResultMap').then((m) => m.ResultMap),
   { ssr: false, loading: () => <div className="h-[400px] w-full animate-pulse rounded-lg bg-muted" /> }
+);
+
+const LoadingMap = dynamic(
+  () => import('@/components/results/LoadingMap').then((m) => m.LoadingMap),
+  { ssr: false, loading: () => <div className="h-[calc(100vh-180px)] w-full animate-pulse bg-muted" /> }
 );
 
 async function fetchAmenities(lat: number, lng: number): Promise<Record<string, number>> {
@@ -95,41 +122,12 @@ function classifyAreaType(distKm: number): AreaProfile['environment']['type'] {
   return 'rural';
 }
 
-interface ProgressState {
-  done: number;
-  total: number;
-  currentName: string;
-}
-
 interface ResultRing {
   label: string;
   items: ScoredArea[];
 }
 
-/** Progress bar shared between initial load and "search for more" */
-function ProgressBar({ progress }: { progress: ProgressState }) {
-  return (
-    <div className="mx-auto max-w-xs space-y-2">
-      <div className="relative">
-        <div className="h-1 w-full overflow-hidden rounded-full bg-secondary">
-          <div
-            className="h-full rounded-full bg-gradient-to-r from-indigo-500 to-violet-500 dark:from-indigo-400 dark:to-violet-400 transition-[width] duration-700 ease-out"
-            style={{ width: `${(progress.done / progress.total) * 100}%` }}
-          />
-        </div>
-        {progress.done > 0 && progress.done < progress.total && (
-          <div
-            className="absolute top-1/2 h-3 w-3 -translate-x-1/2 -translate-y-1/2 rounded-full bg-violet-500 dark:bg-violet-400 shadow-[0_0_10px_4px_rgba(139,92,246,0.55)] dark:shadow-[0_0_10px_4px_rgba(167,139,250,0.6)] transition-[left] duration-700 ease-out"
-            style={{ left: `${(progress.done / progress.total) * 100}%` }}
-          />
-        )}
-      </div>
-      <p className="text-right text-xs tabular-nums text-muted-foreground">
-        {Math.round((progress.done / progress.total) * 100)}%
-      </p>
-    </div>
-  );
-}
+type TransitionPhase = 'searching' | 'revealing' | 'done';
 
 export default function ResultsPage() {
   const { state, reset } = useSurvey();
@@ -137,8 +135,6 @@ export default function ResultsPage() {
   const router = useRouter();
 
   const [resultRings, setResultRings] = useState<ResultRing[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [progress, setProgress] = useState<ProgressState>({ done: 0, total: 0, currentName: '' });
   const [error, setError] = useState<string | null>(null);
   const [activeIndex, setActiveIndex] = useState<number | null>(null);
   const [hoverIndex, setHoverIndex] = useState<number | null>(null);
@@ -146,145 +142,33 @@ export default function ResultsPage() {
   const [saved, setSaved] = useState(false);
   const [searchedRadiusKm, setSearchedRadiusKm] = useState(20);
   const [isLoadingMore, setIsLoadingMore] = useState(false);
-  const [moreProgress, setMoreProgress] = useState<ProgressState>({ done: 0, total: 0, currentName: '' });
+
+  const [candidates, setCandidates] = useState<CandidateArea[]>([]);
+  const [candidateStatus, setCandidateStatus] = useState<Map<string, CandidateStatus>>(new Map());
+  const [activeCandidateIndex, setActiveCandidateIndex] = useState<number | null>(null);
+  const [currentAreaName, setCurrentAreaName] = useState<string | null>(null);
+  const [currentPhrase, setCurrentPhrase] = useState('');
+  const [doneCount, setDoneCount] = useState(0);
+  const [transitionPhase, setTransitionPhase] = useState<TransitionPhase>('searching');
+  const [mapInstance, setMapInstance] = useState<L.Map | null>(null);
 
   const centreRef = useRef<GeoLocation | null>(null);
   const cardRefs = useRef<(HTMLDivElement | null)[]>([]);
   const hasRun = useRef(false);
+  const phraseIndexRef = useRef(0);
 
-  // Derive flat list of all results across all rings (for map + card refs)
   const allResults = resultRings.flatMap((r) => r.items);
 
-  // Pre-compute the global starting index for each ring
   const ringOffsets = resultRings.reduce<number[]>((acc, _, i) => {
     acc.push(i === 0 ? 0 : acc[i - 1] + resultRings[i - 1].items.length);
     return acc;
   }, []);
 
-  /**
-   * Fetches and scores areas in the ring between innerKm and outerKm from centre.
-   * Pass innerKm=0 for the initial 0–outerKm search (no inner-ring filtering).
-   */
-  const fetchRingResults = useCallback(async (
-    centre: GeoLocation,
-    innerKm: number,
-    outerKm: number,
-    setProgressFn: React.Dispatch<React.SetStateAction<ProgressState>>,
-  ): Promise<ScoredArea[]> => {
-    const allCandidates = generateCandidateAreas(centre, outerKm, 3);
-
-    // For an expanded ring, keep only candidates beyond the already-searched radius
-    const candidates = innerKm === 0
-      ? allCandidates
-      : allCandidates.filter((c) =>
-          haversineDistance(centre.lat, centre.lng, c.lat, c.lng) > innerKm
-        );
-
-    setProgressFn({ done: 0, total: candidates.length, currentName: '' });
-
-    const BATCH_SIZE = 4;
-    const areaProfiles: AreaProfile[] = [];
-
-    for (let i = 0; i < candidates.length; i += BATCH_SIZE) {
-      const batch = candidates.slice(i, i + BATCH_SIZE);
-
-      // Non-blocking: grab a readable name for the progress display
-      fetch(`/api/geocode?q=${batch[0].lat},${batch[0].lng}`)
-        .then((r) => r.json())
-        .then((data: NominatimResult[]) => {
-          if (Array.isArray(data) && data.length > 0) {
-            const name = extractAreaName(data) || data[0].display_name.split(',')[0].trim();
-            setProgressFn((p) => ({ ...p, currentName: name }));
-          }
-        })
-        .catch(() => {});
-
-      const batchResults = await Promise.allSettled(
-        batch.map(async (c) => {
-          const amenities = await fetchAmenities(c.lat, c.lng);
-          const distFromCentre = haversineDistance(centre.lat, centre.lng, c.lat, c.lng);
-
-          const profile: AreaProfile = {
-            id: c.id,
-            name: c.name,
-            coordinates: { lat: c.lat, lng: c.lng },
-            amenities,
-            normalizedAmenities: {},
-            transport: {
-              trainStationProximity: amenities.trainStation > 0 ? 1 : 0,
-              busFrequency: Math.min(amenities.busStop / 10, 1),
-            },
-            environment: {
-              type: classifyAreaType(distFromCentre),
-              greenSpaceCoverage: Math.min((amenities.parksGreenSpaces || 0) / 5, 1),
-            },
-          };
-
-          if (state.commute.workLocation && state.commute.commuteModes.length > 0) {
-            profile.commuteEstimate = bestCommuteTime(
-              c.lat,
-              c.lng,
-              state.commute.workLocation.lat,
-              state.commute.workLocation.lng,
-              state.commute.commuteModes,
-            );
-            profile.commuteBreakdown = commuteBreakdown(
-              c.lat,
-              c.lng,
-              state.commute.workLocation.lat,
-              state.commute.workLocation.lng,
-              state.commute.commuteModes,
-            );
-          }
-
-          return profile;
-        })
-      );
-
-      for (const r of batchResults) {
-        if (r.status === 'fulfilled') areaProfiles.push(r.value);
-      }
-      setProgressFn((p) => ({ ...p, done: Math.min(i + BATCH_SIZE, candidates.length) }));
-    }
-
-    const scored = scoreAndRankAreas(areaProfiles, state);
-
-    // Reverse-geocode readable names for the top results
-    const namedResults = await Promise.all(
-      scored.map(async (s) => {
-        try {
-          const res = await fetch(
-            `/api/geocode?q=${s.area.coordinates.lat},${s.area.coordinates.lng}`
-          );
-          const data: NominatimResult[] = await res.json();
-          
-          if (data.length > 0) {
-            let name = extractAreaName(data);
-            
-            if (!name) {
-              const parts = data[0].display_name.split(',');
-              name = parts[0].trim();
-            }
-
-            const addressType = getMatchedAddressType(data[0].address);
-            if (addressType && ['city', 'town', 'city_district'].includes(addressType)) {
-              const direction = getCardinalDirection(centre, s.area.coordinates);
-              if (direction) {
-                name = `${direction} ${name}`;
-              }
-            }
-
-            return { ...s, area: { ...s.area, name } };
-          }
-        } catch {
-          // Keep the generated name
-        }
-        return s;
-      })
-    );
-
-    return namedResults;
-  }, [state]);
+  const getNextPhrase = useCallback(() => {
+    const phrase = FUN_PHRASES[phraseIndexRef.current % FUN_PHRASES.length];
+    phraseIndexRef.current++;
+    return phrase;
+  }, []);
 
   const runAnalysis = useCallback(async () => {
     if (hasRun.current) return;
@@ -297,15 +181,182 @@ export default function ResultsPage() {
 
       centreRef.current = centre;
 
-      const items = await fetchRingResults(centre, 0, 20, setProgress);
-      setResultRings([{ label: 'Within 20 km', items }]);
+      const allCandidates = generateCandidateAreas(centre, 20, 3);
+      setCandidates(allCandidates);
+
+      const initialStatus = new Map<string, CandidateStatus>();
+      allCandidates.forEach(c => initialStatus.set(c.id, 'pending'));
+      setCandidateStatus(initialStatus);
+      setDoneCount(0);
+      setCurrentPhrase(getNextPhrase());
+
+      const BATCH_SIZE = 4;
+      const areaProfiles: AreaProfile[] = [];
+      const profileMap = new Map<string, AreaProfile>();
+
+      for (let i = 0; i < allCandidates.length; i += BATCH_SIZE) {
+        const batch = allCandidates.slice(i, i + BATCH_SIZE);
+
+        setActiveCandidateIndex(i);
+
+        setCandidateStatus(prev => {
+          const newStatus = new Map(prev);
+          batch.forEach(c => newStatus.set(c.id, 'checking'));
+          return newStatus;
+        });
+
+        fetch(`/api/geocode?q=${batch[0].lat},${batch[0].lng}`)
+          .then((r) => r.json())
+          .then((data: NominatimResult[]) => {
+            if (Array.isArray(data) && data.length > 0) {
+              const name = extractAreaName(data) || data[0].display_name.split(',')[0].trim();
+              setCurrentAreaName(name);
+              setCurrentPhrase(getNextPhrase());
+            }
+          })
+          .catch(() => {});
+
+        const batchResults = await Promise.allSettled(
+          batch.map(async (c) => {
+            const [amenities, postcode] = await Promise.all([
+              fetchAmenities(c.lat, c.lng),
+              getPostcodeDistrict(c.lat, c.lng),
+            ]);
+            const distFromCentre = haversineDistance(centre.lat, centre.lng, c.lat, c.lng);
+
+            let name: string;
+            let outcode: string | undefined;
+            if (postcode) {
+              name = postcode.placeName
+                ? `${postcode.placeName}, ${postcode.outcode}`
+                : postcode.outcode;
+              outcode = postcode.outcode;
+            } else {
+              name = `Area near [${c.lat.toFixed(4)}, ${c.lng.toFixed(4)}]`;
+            }
+
+            const profile: AreaProfile = {
+              id: c.id,
+              name,
+              outcode,
+              coordinates: { lat: c.lat, lng: c.lng },
+              amenities,
+              normalizedAmenities: {},
+              transport: {
+                trainStationProximity: amenities.trainStation > 0 ? 1 : 0,
+                busFrequency: Math.min(amenities.busStop / 10, 1),
+              },
+              environment: {
+                type: classifyAreaType(distFromCentre),
+                greenSpaceCoverage: Math.min((amenities.parksGreenSpaces || 0) / 5, 1),
+              },
+            };
+
+            if (state.commute.workLocation && state.commute.commuteModes.length > 0) {
+              profile.commuteEstimate = bestCommuteTime(
+                c.lat,
+                c.lng,
+                state.commute.workLocation.lat,
+                state.commute.workLocation.lng,
+                state.commute.commuteModes,
+              );
+              profile.commuteBreakdown = commuteBreakdown(
+                c.lat,
+                c.lng,
+                state.commute.workLocation.lat,
+                state.commute.workLocation.lng,
+                state.commute.commuteModes,
+              );
+            }
+
+            return { candidateId: c.id, profile };
+          })
+        );
+
+        for (const r of batchResults) {
+          if (r.status === 'fulfilled') {
+            areaProfiles.push(r.value.profile);
+            profileMap.set(r.value.candidateId, r.value.profile);
+          }
+        }
+
+        setCandidateStatus(prev => {
+          const newStatus = new Map(prev);
+          for (const r of batchResults) {
+            if (r.status === 'fulfilled') {
+              newStatus.set(r.value.candidateId, 'checked');
+            }
+          }
+          return newStatus;
+        });
+
+        setDoneCount(Math.min(i + BATCH_SIZE, allCandidates.length));
+      }
+
+      setTransitionPhase('revealing');
+
+      const finalStatus = new Map<string, CandidateStatus>();
+      for (const candidate of allCandidates) {
+        const profile = profileMap.get(candidate.id);
+        if (profile) {
+          const status = getFilterStatus(profile, state);
+          finalStatus.set(candidate.id, status);
+        } else {
+          finalStatus.set(candidate.id, 'pending');
+        }
+      }
+      setCandidateStatus(finalStatus);
+
+      await new Promise(resolve => setTimeout(resolve, 1500));
+
+      if (mapInstance) {
+        mapInstance.flyTo([centre.lat, centre.lng], 9, { duration: 1.2 });
+        await new Promise(resolve => setTimeout(resolve, 1200));
+      }
+
+      const scored = scoreAndRankAreas(areaProfiles, state);
+
+      const namedResults = await Promise.all(
+        scored.map(async (s) => {
+          try {
+            const res = await fetch(
+              `/api/geocode?q=${s.area.coordinates.lat},${s.area.coordinates.lng}`
+            );
+            const data: NominatimResult[] = await res.json();
+
+            if (data.length > 0) {
+              let name = extractAreaName(data);
+
+              if (!name) {
+                const parts = data[0].display_name.split(',');
+                name = parts[0].trim();
+              }
+
+              const addressType = getMatchedAddressType(data[0].address);
+              if (addressType && ['city', 'town', 'city_district'].includes(addressType)) {
+                const direction = getCardinalDirection(centre, s.area.coordinates);
+                if (direction) {
+                  name = `${direction} ${name}`;
+                }
+              }
+
+              return { ...s, area: { ...s.area, name } };
+            }
+          } catch {
+            // Keep the generated name
+          }
+          return s;
+        })
+      );
+
+      setResultRings([{ label: 'Within 20 km', items: namedResults }]);
       setSearchedRadiusKm(20);
+      setTransitionPhase('done');
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Something went wrong');
-    } finally {
-      setLoading(false);
+      setTransitionPhase('done');
     }
-  }, [fetchRingResults, state]);
+  }, [state, candidateStatus, getNextPhrase, mapInstance]);
 
   useEffect(() => {
     runAnalysis();
@@ -320,13 +371,104 @@ export default function ResultsPage() {
 
     setIsLoadingMore(true);
     try {
-      const items = await fetchRingResults(centre, innerKm, outerKm, setMoreProgress);
+      const allCandidates = generateCandidateAreas(centre, outerKm, 3);
+      const candidates = allCandidates.filter((c) =>
+        haversineDistance(centre.lat, centre.lng, c.lat, c.lng) > innerKm
+      );
+
+      const BATCH_SIZE = 4;
+      const areaProfiles: AreaProfile[] = [];
+
+      for (let i = 0; i < candidates.length; i += BATCH_SIZE) {
+        const batch = candidates.slice(i, i + BATCH_SIZE);
+
+        const batchResults = await Promise.allSettled(
+          batch.map(async (c) => {
+            const amenities = await fetchAmenities(c.lat, c.lng);
+            const distFromCentre = haversineDistance(centre.lat, centre.lng, c.lat, c.lng);
+
+            const profile: AreaProfile = {
+              id: c.id,
+              name: c.name,
+              coordinates: { lat: c.lat, lng: c.lng },
+              amenities,
+              normalizedAmenities: {},
+              transport: {
+                trainStationProximity: amenities.trainStation > 0 ? 1 : 0,
+                busFrequency: Math.min(amenities.busStop / 10, 1),
+              },
+              environment: {
+                type: classifyAreaType(distFromCentre),
+                greenSpaceCoverage: Math.min((amenities.parksGreenSpaces || 0) / 5, 1),
+              },
+            };
+
+            if (state.commute.workLocation && state.commute.commuteModes.length > 0) {
+              profile.commuteEstimate = bestCommuteTime(
+                c.lat,
+                c.lng,
+                state.commute.workLocation.lat,
+                state.commute.workLocation.lng,
+                state.commute.commuteModes,
+              );
+              profile.commuteBreakdown = commuteBreakdown(
+                c.lat,
+                c.lng,
+                state.commute.workLocation.lat,
+                state.commute.workLocation.lng,
+                state.commute.commuteModes,
+              );
+            }
+
+            return profile;
+          })
+        );
+
+        for (const r of batchResults) {
+          if (r.status === 'fulfilled') areaProfiles.push(r.value);
+        }
+      }
+
+      const scored = scoreAndRankAreas(areaProfiles, state);
+
+      const namedResults = await Promise.all(
+        scored.map(async (s) => {
+          try {
+            const res = await fetch(
+              `/api/geocode?q=${s.area.coordinates.lat},${s.area.coordinates.lng}`
+            );
+            const data: NominatimResult[] = await res.json();
+
+            if (data.length > 0) {
+              let name = extractAreaName(data);
+
+              if (!name) {
+                const parts = data[0].display_name.split(',');
+                name = parts[0].trim();
+              }
+
+              const addressType = getMatchedAddressType(data[0].address);
+              if (addressType && ['city', 'town', 'city_district'].includes(addressType)) {
+                const direction = getCardinalDirection(centre, s.area.coordinates);
+                if (direction) {
+                  name = `${direction} ${name}`;
+                }
+              }
+
+              return { ...s, area: { ...s.area, name } };
+            }
+          } catch {
+            // Keep the generated name
+          }
+          return s;
+        })
+      );
+
       const label = `${innerKm}–${outerKm} km from your centre`;
-      setResultRings((prev) => [...prev, { label, items }]);
+      setResultRings((prev) => [...prev, { label, items: namedResults }]);
       setSearchedRadiusKm(outerKm);
     } finally {
       setIsLoadingMore(false);
-      setMoreProgress({ done: 0, total: 0, currentName: '' });
     }
   }
 
@@ -360,31 +502,160 @@ export default function ResultsPage() {
     setSaved(true);
   }
 
+  const isLoading = transitionPhase !== 'done';
+  const centre = centreRef.current ?? { lat: 53.48, lng: -2.24 };
+
   return (
-    <div>
+    <div className="min-h-screen">
       <SiteHeader />
-      <div className="mx-auto max-w-5xl px-4 py-6">
-        <h2 className="mb-6 text-lg text-muted-foreground">Your Results</h2>
 
-        {/* ── Initial loading ── */}
-        {loading && (
-          <Card>
-            <CardContent className="py-16 text-center">
-              <p className="text-xl font-semibold tracking-tight">Finding your ideal areas</p>
-              <p className="mt-1.5 mb-10 h-5 text-sm text-muted-foreground">
-                {progress.currentName
-                  ? `Checking ${progress.currentName}`
-                  : progress.total > 0
-                  ? 'Starting\u2026'
-                  : ''}
-              </p>
-              {progress.total > 0 && <ProgressBar progress={progress} />}
-            </CardContent>
-          </Card>
-        )}
+      {isLoading && !error && (
+        <LoadingProgressBar done={doneCount} total={candidates.length} />
+      )}
 
-        {/* ── Error ── */}
-        {error && (
+      {isLoading && !error && candidates.length > 0 && (
+        <div className="relative">
+          <LoadingMap
+            centre={centre}
+            onMapReady={setMapInstance}
+            activeCandidateIndex={activeCandidateIndex}
+            candidates={candidates}
+          />
+          <LoadingOverlay
+            areaName={currentAreaName}
+            phrase={currentPhrase}
+          />
+        </div>
+      )}
+
+      {!isLoading && !error && (
+        <div className="mx-auto max-w-5xl px-4 py-6">
+          <h2 className="mb-6 text-lg text-muted-foreground">Your Results</h2>
+
+          {allResults.length === 0 ? (
+            <Card>
+              <CardContent className="py-12 text-center">
+                <p className="text-lg font-medium">No matching areas found</p>
+                <p className="mt-2 text-sm text-muted-foreground">
+                  Try adjusting your preferences to broaden the search.
+                </p>
+                <Button className="mt-4" onClick={() => router.push('/survey/review')}>
+                  Back to Review
+                </Button>
+              </CardContent>
+            </Card>
+          ) : (
+            <div className="space-y-6">
+              <ResultMap
+                results={allResults}
+                activeIndex={activeIndex}
+                hoverIndex={hoverIndex}
+                onMarkerClick={handleMarkerClick}
+                onMarkerHover={handleMarkerHover}
+              />
+
+              <div className="space-y-3">
+                {resultRings.map((ring, ringIdx) => (
+                  <React.Fragment key={`ring-${ringIdx}`}>
+                    {ringIdx > 0 && (
+                      <div className="relative flex items-center py-3">
+                        <div className="flex-1 border-t border-border" />
+                        <span className="mx-4 text-sm font-medium text-muted-foreground">
+                          {ring.label}
+                        </span>
+                        <div className="flex-1 border-t border-border" />
+                      </div>
+                    )}
+
+                    {ring.items.length === 0 ? (
+                      <p className="py-4 text-center text-sm text-muted-foreground">
+                        No matching areas found in this range.
+                      </p>
+                    ) : (
+                      ring.items.map((result, itemIdx) => {
+                        const cardIndex = ringOffsets[ringIdx] + itemIdx;
+                        return (
+                          <React.Fragment key={result.area.id}>
+                            <div ref={(el) => { cardRefs.current[cardIndex] = el; }}>
+                              <ResultCard
+                                result={result}
+                                rank={cardIndex + 1}
+                                isActive={cardIndex === activeIndex}
+                                isHovered={cardIndex === hoverIndex}
+                                onClick={() => handleCardClick(cardIndex)}
+                                onHover={() => setHoverIndex(cardIndex)}
+                                onLeave={() => setHoverIndex(null)}
+                                onExplore={() => setModalArea(result)}
+                              />
+                            </div>
+                            {(cardIndex + 1) % 3 === 0 && cardIndex < allResults.length - 1 && (
+                              <AdSlot variant="inline" />
+                            )}
+                          </React.Fragment>
+                        );
+                      })
+                    )}
+                  </React.Fragment>
+                ))}
+              </div>
+
+              {isLoadingMore && (
+                <Card>
+                  <CardContent className="py-8 text-center">
+                    <p className="text-sm font-medium">
+                      Searching {searchedRadiusKm}–{searchedRadiusKm + 20} km from your centre...
+                    </p>
+                  </CardContent>
+                </Card>
+              )}
+
+              <AreaInfoModal area={modalArea} onClose={() => setModalArea(null)} />
+
+              <div className="flex flex-col items-center gap-4 pt-4">
+                <Button
+                  variant="outline"
+                  onClick={handleSearchMore}
+                  disabled={isLoadingMore}
+                >
+                  {isLoadingMore
+                    ? `Searching ${searchedRadiusKm}–${searchedRadiusKm + 20} km...`
+                    : `Search further afield (${searchedRadiusKm}–${searchedRadiusKm + 20} km)`}
+                </Button>
+
+                {session && (
+                  <Button variant="outline" onClick={handleSave} disabled={saved}>
+                    {saved ? 'Saved' : 'Save Results'}
+                  </Button>
+                )}
+                <Button variant="outline" onClick={handleStartOver}>
+                  Start Over
+                </Button>
+                <DonateButton />
+              </div>
+
+              {state.surveyMode === 'quick' && (
+                <Card className="border-primary/30 bg-primary/5">
+                  <CardContent className="flex flex-col items-center gap-3 py-6 text-center sm:flex-row sm:text-left">
+                    <div className="flex-1 space-y-1">
+                      <p className="font-semibold">Want more tailored results?</p>
+                      <p className="text-sm text-muted-foreground">
+                        Complete the full survey to fine-tune 25+ preferences. Your quick
+                        answers will carry over as a starting point.
+                      </p>
+                    </div>
+                    <Button asChild>
+                      <Link href="/survey/profile">Refine with Full Survey</Link>
+                    </Button>
+                  </CardContent>
+                </Card>
+              )}
+            </div>
+          )}
+        </div>
+      )}
+
+      {error && (
+        <div className="mx-auto max-w-5xl px-4 py-6">
           <Card>
             <CardContent className="py-12 text-center">
               <p className="text-lg font-medium text-destructive">Error</p>
@@ -394,144 +665,8 @@ export default function ResultsPage() {
               </Button>
             </CardContent>
           </Card>
-        )}
-
-        {/* ── No results ── */}
-        {!loading && !error && allResults.length === 0 && (
-          <Card>
-            <CardContent className="py-12 text-center">
-              <p className="text-lg font-medium">No matching areas found</p>
-              <p className="mt-2 text-sm text-muted-foreground">
-                Try adjusting your preferences to broaden the search.
-              </p>
-              <Button className="mt-4" onClick={() => router.push('/survey/review')}>
-                Back to Review
-              </Button>
-            </CardContent>
-          </Card>
-        )}
-
-        {/* ── Results ── */}
-        {!loading && !error && allResults.length > 0 && (
-          <div className="space-y-6">
-            {/* Map — shows all results across all rings */}
-            <ResultMap
-              results={allResults}
-              activeIndex={activeIndex}
-              hoverIndex={hoverIndex}
-              onMarkerClick={handleMarkerClick}
-              onMarkerHover={handleMarkerHover}
-            />
-
-            {/* Result cards, grouped by ring */}
-            <div className="space-y-3">
-              {resultRings.map((ring, ringIdx) => (
-                <React.Fragment key={`ring-${ringIdx}`}>
-                  {/* Divider label for every ring after the first */}
-                  {ringIdx > 0 && (
-                    <div className="relative flex items-center py-3">
-                      <div className="flex-1 border-t border-border" />
-                      <span className="mx-4 text-sm font-medium text-muted-foreground">
-                        {ring.label}
-                      </span>
-                      <div className="flex-1 border-t border-border" />
-                    </div>
-                  )}
-
-                  {ring.items.length === 0 ? (
-                    <p className="py-4 text-center text-sm text-muted-foreground">
-                      No matching areas found in this range.
-                    </p>
-                  ) : (
-                    ring.items.map((result, itemIdx) => {
-                      const cardIndex = ringOffsets[ringIdx] + itemIdx;
-                      return (
-                        <React.Fragment key={result.area.id}>
-                          <div ref={(el) => { cardRefs.current[cardIndex] = el; }}>
-                            <ResultCard
-                              result={result}
-                              rank={cardIndex + 1}
-                              isActive={cardIndex === activeIndex}
-                              isHovered={cardIndex === hoverIndex}
-                              onClick={() => handleCardClick(cardIndex)}
-                              onHover={() => setHoverIndex(cardIndex)}
-                              onLeave={() => setHoverIndex(null)}
-                              onExplore={() => setModalArea(result)}
-                            />
-                          </div>
-                          {(cardIndex + 1) % 3 === 0 && cardIndex < allResults.length - 1 && (
-                            <AdSlot size="banner" />
-                          )}
-                        </React.Fragment>
-                      );
-                    })
-                  )}
-                </React.Fragment>
-              ))}
-            </div>
-
-            {/* "Search for more" loading indicator */}
-            {isLoadingMore && (
-              <Card>
-                <CardContent className="py-8 text-center">
-                  <p className="text-sm font-medium">
-                    Searching {searchedRadiusKm}–{searchedRadiusKm + 20} km from your centre
-                  </p>
-                  <p className="mt-1 mb-6 h-4 text-xs text-muted-foreground">
-                    {moreProgress.currentName
-                      ? `Checking ${moreProgress.currentName}`
-                      : 'Starting\u2026'}
-                  </p>
-                  {moreProgress.total > 0 && <ProgressBar progress={moreProgress} />}
-                </CardContent>
-              </Card>
-            )}
-
-            <AreaInfoModal area={modalArea} onClose={() => setModalArea(null)} />
-
-            {/* Action buttons */}
-            <div className="flex flex-col items-center gap-4 pt-4">
-              <Button
-                variant="outline"
-                onClick={handleSearchMore}
-                disabled={isLoadingMore}
-              >
-                {isLoadingMore
-                  ? `Searching ${searchedRadiusKm}–${searchedRadiusKm + 20} km\u2026`
-                  : `Search further afield (${searchedRadiusKm}–${searchedRadiusKm + 20} km)`}
-              </Button>
-
-              {session && (
-                <Button variant="outline" onClick={handleSave} disabled={saved}>
-                  {saved ? 'Saved' : 'Save Results'}
-                </Button>
-              )}
-              <Button variant="outline" onClick={handleStartOver}>
-                Start Over
-              </Button>
-              <DonateButton />
-            </div>
-
-            {/* Upgrade prompt — shown only after the quick survey */}
-            {state.surveyMode === 'quick' && (
-              <Card className="border-primary/30 bg-primary/5">
-                <CardContent className="flex flex-col items-center gap-3 py-6 text-center sm:flex-row sm:text-left">
-                  <div className="flex-1 space-y-1">
-                    <p className="font-semibold">Want more tailored results?</p>
-                    <p className="text-sm text-muted-foreground">
-                      Complete the full survey to fine-tune 25+ preferences. Your quick
-                      answers will carry over as a starting point.
-                    </p>
-                  </div>
-                  <Button asChild>
-                    <Link href="/survey/profile">Refine with Full Survey</Link>
-                  </Button>
-                </CardContent>
-              </Card>
-            )}
-          </div>
-        )}
-      </div>
+        </div>
+      )}
     </div>
   );
 }

@@ -5,9 +5,11 @@
 The results page (`src/app/results/page.tsx`) orchestrates the full pipeline:
 
 ```
-generateCandidateAreas() → fetch amenities via /api/overpass → build AreaProfile[]
-  → scoreAndRankAreas() → reverse-geocode names → display top 10
+generateCandidateAreas() → fetch amenities + postcode → build AreaProfile[]
+  → scoreAndRankAreas() → display top 10
 ```
+
+Area names are fetched during the amenity batch via `getPostcodeDistrict()` (postcodes.io), which returns `{ outcode, placeName }`. Names are constructed as `"Place Name, OUTCODE"` or just `"OUTCODE"` if no place name is available.
 
 ### Ring-based "Search further afield"
 
@@ -20,7 +22,7 @@ Results are grouped into **rings**. Each ring represents a 20 km band of distanc
 The helper `fetchRingResults(centre, innerKm, outerKm, setProgressFn)`:
 1. Calls `generateCandidateAreas(centre, outerKm, 3)` to get the full outer grid
 2. If `innerKm > 0`, filters candidates to those with `haversineDistance(centre, candidate) > innerKm`
-3. Fetches amenities, builds profiles, calls `scoreAndRankAreas()`, and reverse-geocodes — all using the same survey state
+3. Fetches amenities and postcode district, builds profiles, calls `scoreAndRankAreas()`
 4. Returns the top 10 scored areas for that ring
 
 State involved: `resultRings: ResultRing[]` (accumulates rings), `searchedRadiusKm` (tracks the outermost ring searched), `isLoadingMore`, `moreProgress`. The map receives `allResults = resultRings.flatMap(r => r.items)` so all rings appear on the map simultaneously.
@@ -32,7 +34,7 @@ State involved: `resultRings: ResultRing[]` (accumulates rings), `searchedRadius
 - **centre** = user's work location or family location, falling back to `[53.48, -2.24]` (Manchester)
 - **radiusKm** = 20 (default)
 - **spacingKm** = 3 (default)
-- Returns `CandidateArea[]` with `{ id, name, lat, lng }`
+- Returns `CandidateArea[]` with `{ id, name: '', lat, lng }` — name is populated later via postcode lookup
 
 ## Amenity fetching
 
@@ -47,7 +49,8 @@ The fetch includes retry logic (2 retries with exponential backoff for 429 respo
 ```ts
 interface AreaProfile {
   id: string;
-  name: string;
+  name: string;                               // "Place Name, OUTCODE" or "OUTCODE" (postcode district)
+  outcode?: string;                           // UK postcode district, e.g., "WC2N"
   coordinates: { lat: number; lng: number };
   amenities: Record<string, number>;         // raw counts from Overpass
   normalizedAmenities: Record<string, number>; // 0-1 normalized across all candidates
@@ -57,6 +60,8 @@ interface AreaProfile {
   commuteBreakdown?: Partial<Record<CommuteMode, number>>; // minutes per selected mode
 }
 ```
+
+Area names come from `getPostcodeDistrict()` (postcodes.io), which returns `{ outcode, placeName }`. If `placeName` is available, the name is `"${placeName}, ${outcode}"` (e.g., "Covent Garden, WC2N"). Otherwise, just the outcode (e.g., "WC2N"). Fallback for failed lookups: coordinate placeholder.
 
 Area type is classified by distance from centre: <3km city_centre, <8km inner_suburb, <15km outer_suburb, <25km town, else rural.
 

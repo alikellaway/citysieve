@@ -50,7 +50,7 @@ export function generateCandidateAreas(
 
         areas.push({
           id,
-          name: `Area near [${roundedLat}, ${roundedLng}]`,
+          name: '',
           lat: roundedLat,
           lng: roundedLng,
         });

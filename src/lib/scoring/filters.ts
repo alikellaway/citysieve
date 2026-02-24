@@ -15,12 +15,17 @@ export function applyHardFilters(
       return false;
     }
 
-    // Filter 2: Environment type mismatch (allow adjacent types)
-    if (state.environment.areaType && area.environment.type !== state.environment.areaType) {
+    // Filter 2: Environment type mismatch (allow adjacent types, OR across selections)
+    if (state.environment.areaTypes.length > 0 && area.environment.type) {
       const typeOrder = ['city_centre', 'inner_suburb', 'outer_suburb', 'town', 'rural'] as const;
-      const userIdx = typeOrder.indexOf(state.environment.areaType);
       const areaIdx = typeOrder.indexOf(area.environment.type);
-      if (Math.abs(userIdx - areaIdx) > 1) return false;
+      
+      const passes = state.environment.areaTypes.some((selectedType) => {
+        const userIdx = typeOrder.indexOf(selectedType);
+        return Math.abs(userIdx - areaIdx) <= 1;
+      });
+      
+      if (!passes) return false;
     }
 
     // Filter 3: Explicitly excluded areas
