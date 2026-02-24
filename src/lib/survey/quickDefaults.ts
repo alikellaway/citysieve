@@ -52,7 +52,7 @@ export interface QuickSurveyAnswers {
   isRemote: boolean;
   commuteModes: CommuteMode[];
   maxCommuteTime: number;
-  areaType: AreaType | null;
+  areaTypes: AreaType[];
   topPriorities: QuickPriorityKey[];
 }
 
@@ -125,7 +125,7 @@ export function buildQuickSurveyState(
     },
 
     environment: {
-      areaType: answers.areaType,
+      areaTypes: answers.areaTypes,
       peaceAndQuiet: likert('peaceAndQuiet'),
       developmentFeeling: null,
       excludeAreas: [],

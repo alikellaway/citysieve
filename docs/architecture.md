@@ -32,7 +32,10 @@ src/
 │   ├── db.ts                   # Prisma client singleton
 │   ├── survey/                 # See docs/survey-system.md
 │   ├── scoring/                # See docs/scoring-engine.md
-│   ├── data/                   # Area generator, Nominatim, Overpass clients
+│   ├── data/                   # Area generator, Nominatim, Overpass, Postcode clients
+│   │   ├── area-generator.ts   # Hex grid generation
+│   │   ├── nominatim.ts        # Forward geocoding (search)
+│   │   └── postcode.ts         # UK postcode lookup via postcodes.io
 │   └── utils.ts                # cn() class merging utility
 ├── middleware.ts                # Attaches auth session to /api/survey/* routes
 ├── styles/globals.css          # Tailwind + CSS custom properties
@@ -63,9 +66,9 @@ The survey layout (`src/app/survey/layout.tsx`) adds `SiteHeader` + `ProgressBar
 
 1. **Survey input** — User fills 6 steps. Each step dispatches partial updates to the survey reducer, which persists state to `localStorage` under key `'citysieve-survey-state'`.
 2. **Area generation** — Results page calls `generateCandidateAreas()` to create a hex grid of candidate points around the user's work or family location.
-3. **Amenity fetch** — Each candidate's amenities are fetched via `/api/overpass` (batched, 4 concurrent). Overpass route caches results in memory (24h TTL, ~500m coordinate rounding).
+3. **Amenity + postcode fetch** — Each candidate's amenities are fetched via `/api/overpass` (batched, 4 concurrent) and postcode district via `getPostcodeDistrict()` (postcodes.io, cached 24h). Overpass route caches results in memory (24h TTL, ~500m coordinate rounding).
 4. **Scoring** — `scoreAndRankAreas()` normalizes amenity counts, applies hard filters, extracts weights from survey state, scores each area, and returns top 10.
-5. **Reverse geocoding** — Top 10 results get human-readable names via `/api/geocode` (Nominatim reverse lookup).
+5. **Naming** — Area names are constructed from postcode lookup (e.g., "Covent Garden, WC2N" or just "WC2N" if no place name available). Fallback: coordinate placeholder.
 6. **Display** — Results shown as ranked cards + Leaflet map with interactive markers.
 
 ## Key patterns

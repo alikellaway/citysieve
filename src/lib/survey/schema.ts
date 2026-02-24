@@ -75,7 +75,7 @@ export const transportSchema = z.object({
 });
 
 export const environmentSchema = z.object({
-  areaType: z.enum(['city_centre', 'inner_suburb', 'outer_suburb', 'town', 'rural']),
+  areaTypes: z.array(z.enum(['city_centre', 'inner_suburb', 'outer_suburb', 'town', 'rural'])),
   peaceAndQuiet: likertSchema,
   greenSpaces: likertSchema,
   developmentFeeling: z.enum(['fine_with_it', 'prefer_established', 'no_preference']),

@@ -30,10 +30,14 @@ All components are in `src/components/`.
 ## Ads
 
 ### `AdSlot` (`ads/AdSlot.tsx`)
-- Placeholder ad component using CVA variants
-- **Props**: `size` ('banner' | 'rectangle' | 'leaderboard'), `className`
-- Sizes: banner=728x90, rectangle=300x250, leaderboard=full-width x 90
-- Used on: landing page, between result cards (every 3rd)
+- Placeholder ad component using CVA variants with responsive sizing
+- **Props**: `variant` ('inline' | 'leaderboard' | 'rectangle'), `className`
+- **Responsive sizes**:
+  - `inline`: 320×50 (mobile) → 728×90 (tablet/desktop) — for inserting between content
+  - `leaderboard`: 320×50 (mobile) → 728×90 (tablet) → 970×90 (desktop) — for full-width page placements
+  - `rectangle`: 300×250 (all breakpoints) — fixed MREC size
+- **Size labels**: Breakpoint-aware — shows current size based on viewport
+- Used on: landing page (`leaderboard`), results page between cards (`inline`)
 - To add real ads: replace the inner content with the ad provider's script; sizing/positioning stays the same
 
 ## Donation
@@ -77,11 +81,28 @@ All components are in `src/components/`.
 ### `AreaInfoModal` (`results/AreaInfoModal.tsx`)
 - **Props**: `area: ScoredArea | null`, `onClose: () => void`
 - Renders nothing when `area` is null; otherwise opens a shadcn `Dialog`
-- **Header**: area name + match score badge
-- **Quick stats**: environment type label, commute estimate (if present). The commute estimate pill is a toggle button — clicking it expands an inline breakdown showing estimated minutes per commute mode the user selected (Car / Train / Bus / Cycling / Walking). The breakdown collapses when a different area is opened.
+- **Layout**: `max-w-3xl` two-column layout (map left, info right on desktop; stacked on mobile)
+- **Header**: area name + match score badge + environment type + commute toggle
+- **Map panel**: `AreaModalMap` component showing clustered amenity markers within 1km radius
+- **Amenity panel**: `AmenityGrid` showing count tiles per category + filter chips
 - **Resource link grid (2×3)**: Google Maps, Street View, Rightmove, Zoopla, Schools (DfE), Crime stats — all open in new tab
 - **Awin affiliate wrapping**: When `NEXT_PUBLIC_AWIN_ID` is set, Rightmove (mid 2047) and Zoopla (mid 2623) links are wrapped via `awin1.com`
 - **Sponsored slot**: Rendered only when `NEXT_PUBLIC_SPONSORED_URL` is set; shows a "Sponsored" chip, sponsor name (`NEXT_PUBLIC_SPONSORED_LABEL`), tagline (`NEXT_PUBLIC_SPONSORED_TEXT`), and link
+
+### `AreaModalMap` (`results/AreaModalMap.tsx`)
+- **Props**: `center: { lat, lng }`, `pois: Poi[]`, `activeFilter: AmenityCategory | 'all'`, `onPoiClick?: (poi: Poi) => void`
+- Leaflet map with CartoDB tiles + clustered markers for amenity POIs
+- **Must be dynamically imported** with `ssr: false` — Leaflet requires `window`
+- **Markers**: Circular div icons, colour-coded by category (see `CATEGORY_CONFIG` in `src/lib/poi-types.ts`)
+- **Clustering**: Uses `leaflet.markercluster` — groups nearby markers with count badge
+- **Popups**: Click a marker to see name, type, and "Open in Google Maps" link
+- **Filtering**: `activeFilter` prop controls which markers are shown; pass `'all'` to show all
+
+### `AmenityGrid` (`results/AmenityGrid.tsx`)
+- **Props**: `pois: Poi[]`, `activeFilter: AmenityCategory | 'all'`, `onFilterChange: (filter: AmenityCategory | 'all') => void`
+- Displays amenity counts in a 3-column grid with category icons
+- Clicking a category tile filters the map to show only that amenity type
+- Horizontal filter chips show counts and allow quick filtering
 
 ### `ResultMap` (`results/ResultMap.tsx`)
 - **Props**: `results: ScoredArea[]`, `activeIndex: number | null`, `hoverIndex: number | null`, `onMarkerClick: (index: number) => void`, `onMarkerHover: (index: number | null) => void`
@@ -97,6 +118,31 @@ All components are in `src/components/`.
 - Shared utility: `getRankColor(rank: number): string`
 - Returns `#22c55e` (green-500) for ranks 1–3, `#f59e0b` (amber-500) for 4–7, `#94a3b8` (slate-400) for 8+
 - Imported by both `ResultCard` and `ResultMap` to keep badge and pin colours in sync
+
+### `LoadingMap` (`results/LoadingMap.tsx`)
+- Full-screen animated map shown during the search/analysis phase
+- **Props**: `centre: { lat, lng }`, `candidates: CandidateArea[]`, `status: Map<string, CandidateStatus>`, `activeIndex: number | null`, `onMapReady?: (map: L.Map) => void`
+- **CandidateStatus**: `'pending' | 'checking' | 'checked' | 'passed' | 'filtered'`
+- **CircleMarker** for each candidate with status-based styling:
+  - `pending`: gray (#64748b), 40% opacity — not yet fetched
+  - `checking`: violet (#8b5cf6), 100% opacity — currently fetching
+  - `checked`: slate (#94a3b8), 60% opacity — fetched, awaiting final score
+  - `passed`: green (#22c55e), 80% opacity — passed filters
+  - `filtered`: translucent red (#ef4444), 40% opacity — filtered out
+- `FlyToCandidate` sub-component pans the map to each candidate as it's checked
+- **Must be dynamically imported** with `ssr: false` — Leaflet requires `window`
+
+### `LoadingOverlay` (`results/LoadingOverlay.tsx`)
+- Bottom-center floating info panel shown during loading
+- **Props**: `areaName: string | null`, `phrase: string`
+- Shows 📍 icon + current area name, plus a fun micro-copy phrase
+- Frosted glass effect via `backdrop-blur-md`
+
+### `LoadingProgressBar` (`results/LoadingProgressBar.tsx`)
+- Slim full-width progress bar positioned below the header
+- **Props**: `done: number`, `total: number`
+- Gradient fill (indigo → violet) with animated dot at current position
+- Shows percentage on the right
 
 ## UI primitives (`ui/`)
 

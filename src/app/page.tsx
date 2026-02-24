@@ -43,7 +43,7 @@ export default function HomePage() {
           </p>
         </div>
 
-        <AdSlot size="leaderboard" className="mt-12" />
+        <AdSlot variant="leaderboard" className="mt-12" />
 
         <section id="how-it-works" className="mx-auto mt-12 max-w-4xl px-4 pb-16">
           <h3 className="mb-12 text-center text-2xl font-bold">

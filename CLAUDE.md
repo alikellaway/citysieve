@@ -33,7 +33,7 @@ NEXT_PUBLIC_SPONSORED_TEXT=   # Optional: Short tagline (e.g. "Find your best mo
 
 ## Critical Gotchas
 
-1. **Leaflet must be dynamically imported** with `ssr: false` — it requires `window`. See `ResultMap.tsx`.
+1. **Leaflet must be dynamically imported** with `ssr: false` — it requires `window`. See `ResultMap.tsx` and `AreaModalMap.tsx`.
 2. **Overpass batch size is 4** — the results page fetches amenities 4 at a time. Do not increase this.
 3. **Overpass route caches in memory** — 24h TTL, keyed by rounded coordinates (~500m precision).
 4. **`useDebounce` debounces a value**, not a callback. `LocationAutocomplete` debounces the query string.
@@ -41,6 +41,7 @@ NEXT_PUBLIC_SPONSORED_TEXT=   # Optional: Short tagline (e.g. "Find your best mo
 6. **Prisma 7 uses a libsql adapter** — `db.ts` creates a `PrismaLibSql` adapter from `@prisma/adapter-libsql` and passes it to `PrismaClient`. The datasource URL lives in `prisma.config.ts` (not in `schema.prisma`). Import the client from `@/generated/prisma/client`.
 7. **Database sessions** — NextAuth uses database strategy, not JWT. Every session check hits SQLite.
 8. **Don't modify UI primitives** in `src/components/ui/` unless fixing a bug.
+9. **POI types and config** are in `src/lib/poi-types.ts` — not in the API route (Next.js route handlers can only export HTTP methods).
 
 ## Deeper Documentation
 

@@ -6,6 +6,7 @@ import { bestCommuteTime } from './commute';
 export interface AreaProfile {
   id: string;
   name: string;
+  outcode?: string;
   coordinates: { lat: number; lng: number };
   amenities: Record<string, number>;
   normalizedAmenities: Record<string, number>;
@@ -153,4 +154,9 @@ export function scoreAndRankAreas(
 
   // 6. Return top 10
   return scored.slice(0, 10);
+}
+
+export function getFilterStatus(area: AreaProfile, state: SurveyState): 'checked' | 'filtered' {
+  const filtered = applyHardFilters([area], state);
+  return filtered.length > 0 ? 'checked' : 'filtered';
 }
