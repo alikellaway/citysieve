@@ -15,9 +15,7 @@ export default function HomePage() {
             <span className="block text-primary">place to live</span>
           </h2>
           <p className="mt-6 text-lg text-muted-foreground sm:text-xl">
-            Choosing where to move is overwhelming. CitySieve takes your
-            priorities — commute, amenities, lifestyle, budget — and
-            recommends areas that actually match what matters to you, using
+            Choosing where to move is overwhelming. CitySieve uses your commute, amenity, lifestyle and budget preferences to recommend areas that actually match what matters to you, using
             live data.
           </p>
           <div className="mt-10 flex flex-col items-center gap-4 sm:flex-row sm:justify-center">
@@ -25,7 +23,7 @@ export default function HomePage() {
               href="/quick-survey"
               className="inline-flex h-12 items-center rounded-lg bg-primary px-8 text-lg font-semibold text-primary-foreground shadow hover:bg-primary/90"
             >
-              Quick Start — 2 mins
+              Quick Start: 2 mins
             </Link>
             <Link
               href="/survey/profile"
@@ -88,7 +86,7 @@ export default function HomePage() {
         <div className="mx-auto flex max-w-5xl flex-col items-center gap-4 px-4">
           <DonateButton />
           <p className="text-sm text-muted-foreground">
-            CitySieve — Open source, powered by OpenStreetMap data
+            CitySieve - powered by OpenStreetMap data
           </p>
         </div>
       </footer>

@@ -3,7 +3,7 @@ import { Providers } from "@/app/providers";
 import "@/styles/globals.css";
 
 export const metadata: Metadata = {
-  title: "CitySieve — Find Your Perfect Place to Live",
+  title: "CitySieve - Find Your Perfect Place to Live",
   description:
     "Take a quick survey about your priorities and discover the best areas to move to, powered by live data.",
 };
