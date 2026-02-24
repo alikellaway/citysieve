@@ -44,7 +44,25 @@ NEXTAUTH_URL=https://citysieve.com
 GOOGLE_CLIENT_ID=<from Google Cloud Console>
 GOOGLE_CLIENT_SECRET=<from Google Cloud Console>
 NEXT_PUBLIC_BMAC_USERNAME=alike
+NEXT_PUBLIC_AWIN_ID=           # optional
+NEXT_PUBLIC_SPONSORED_URL=     # optional
+NEXT_PUBLIC_SPONSORED_LABEL=   # optional
+NEXT_PUBLIC_SPONSORED_TEXT=    # optional
 ```
+
+> **Important — build-time env vars**: `NEXT_PUBLIC_*` variables are inlined
+> into the JavaScript bundle by Next.js at compile time (during
+> `docker compose build`). They are **not** read from the container's runtime
+> environment. Docker Compose resolves `${VAR}` interpolation in
+> `docker-compose.yml` from a file named `.env` in the project root, so a
+> symlink is required on the VPS:
+>
+> ```bash
+> ln -s .env.production ~/citysieve/.env
+> ```
+>
+> Without this symlink, all `NEXT_PUBLIC_*` build args will be empty and
+> features like the Buy Me a Coffee button will be missing in production.
 
 ## GitHub Actions secrets
 
@@ -81,6 +99,12 @@ git clone https://github.com/alikellaway/citysieve.git ~/citysieve
 # Create production env file
 cp ~/citysieve/.env.production.example ~/citysieve/.env.production
 nano ~/citysieve/.env.production   # fill in real values
+
+# Symlink .env -> .env.production so Docker Compose can interpolate
+# NEXT_PUBLIC_* build args from the same file used for runtime env vars.
+# (Next.js bakes NEXT_PUBLIC_* into the JS bundle at build time, so they
+# must be present during `docker compose build`, not just at container start.)
+ln -s .env.production ~/citysieve/.env
 
 # First build + migrate + start
 cd ~/citysieve

@@ -1,6 +1,13 @@
 services:
   app:
-    build: .
+    build:
+      context: .
+      args:
+        NEXT_PUBLIC_BMAC_USERNAME: ${NEXT_PUBLIC_BMAC_USERNAME}
+        NEXT_PUBLIC_AWIN_ID: ${NEXT_PUBLIC_AWIN_ID}
+        NEXT_PUBLIC_SPONSORED_URL: ${NEXT_PUBLIC_SPONSORED_URL}
+        NEXT_PUBLIC_SPONSORED_LABEL: ${NEXT_PUBLIC_SPONSORED_LABEL}
+        NEXT_PUBLIC_SPONSORED_TEXT: ${NEXT_PUBLIC_SPONSORED_TEXT}
     restart: unless-stopped
     ports:
       - "127.0.0.1:3000:3000"
