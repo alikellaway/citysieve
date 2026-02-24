@@ -1,22 +1,12 @@
 # dependencies
-/node_modules
-/.pnp
-.pnp.*
-.yarn/*
-!.yarn/patches
-!.yarn/plugins
-!.yarn/releases
-!.yarn/versions
-
-# testing
-/coverage
+node_modules
 
 # next.js
-/.next/
-/out/
+.next
+out
 
 # production
-/build
+build
 
 # misc
 .DS_Store
@@ -30,7 +20,7 @@ yarn-error.log*
 
 # env files
 .env
-.env*.local
+.env.local
 .env.production
 
 # vercel
@@ -49,4 +39,17 @@ dev.db-journal
 # claude code
 .claude/
 
-/src/generated/prisma
+# generated prisma
+src/generated/prisma
+
+# scripts
+*.ps1
+*.bat
+*.sh
+
+# git
+.git
+.gitignore
+
+# docs
+docs
