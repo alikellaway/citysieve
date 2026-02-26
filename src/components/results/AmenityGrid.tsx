@@ -21,6 +21,7 @@ export function AmenityGrid({ pois, activeFilter, onFilterChange }: AmenityGridP
       gymsLeisure: 0,
       healthcare: 0,
       librariesCulture: 0,
+      schools: 0,
       trainStation: 0,
       busStop: 0,
     };

@@ -6,7 +6,7 @@ export type ChildrenStatus = 'no' | 'under_5' | 'school_age' | 'both';
 export type SchoolPriority = 'primary' | 'secondary' | 'both' | 'not_important';
 export type CarOwnership = 'yes' | 'no' | 'considering';
 export type AreaType = 'city_centre' | 'inner_suburb' | 'outer_suburb' | 'town' | 'rural';
-export type DevelopmentFeeling = 'fine_with_it' | 'prefer_established' | 'no_preference';
+
 export type LikertValue = 1 | 2 | 3 | 4 | 5;
 export type CycleFrequency = 'yes' | 'sometimes' | 'no';
 
@@ -29,6 +29,7 @@ export interface CommuteStep {
   maxCommuteTime: number;
   commuteTimeIsHardCap: boolean;
   commuteModes: CommuteMode[];
+  remoteRegion: string | null;
 }
 
 export interface FamilyStep {
@@ -62,7 +63,7 @@ export interface TransportStep {
 export interface EnvironmentStep {
   areaTypes: AreaType[];
   peaceAndQuiet: LikertValue;
-  developmentFeeling: DevelopmentFeeling | null;
+
   excludeAreas: string[];
   consideringAreas: string[];
 }

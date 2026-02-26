@@ -10,13 +10,15 @@ import { useSurvey } from '@/hooks/useSurvey';
 import { generateCandidateAreas, type CandidateArea } from '@/lib/data/area-generator';
 import { getPostcodeDistrict, filterValidCandidates } from '@/lib/data/postcode';
 import { bestCommuteTime, commuteBreakdown, haversineDistance } from '@/lib/scoring/commute';
-import { scoreAndRankAreas, getFilterStatus, type AreaProfile, type ScoredArea } from '@/lib/scoring/engine';
+import { scoreAndRankAreas, getFilterStatus, type AreaProfile, type ScoredArea, type ScoringResult } from '@/lib/scoring/engine';
 import { ResultCard } from '@/components/results/ResultCard';
 import { AreaInfoModal } from '@/components/results/AreaInfoModal';
+import { FilterBreakdown } from '@/components/results/FilterBreakdown';
 import type { CandidateStatus } from '@/components/results/LoadingMap';
 import { LoadingOverlay } from '@/components/results/LoadingOverlay';
 import { LoadingProgressBar } from '@/components/results/LoadingProgressBar';
 import { AdSlot } from '@/components/ads/AdSlot';
+import { formatMinutes } from '@/lib/format-duration';
 import { DonateButton } from '@/components/donate/DonateButton';
 import { SiteHeader } from '@/components/layout/SiteHeader';
 import { Button } from '@/components/ui/button';
@@ -187,11 +189,28 @@ export default function ResultsPage() {
   const [doneCount, setDoneCount] = useState(0);
   const [transitionPhase, setTransitionPhase] = useState<TransitionPhase>('searching');
   const [mapInstance, setMapInstance] = useState<L.Map | null>(null);
+  const [mapCentre, setMapCentre] = useState<{ lat: number; lng: number } | null>(null);
+  const [isFiltering, setIsFiltering] = useState(false);
+
+  const [viableCount, setViableCount] = useState(0);
+  const [isSkipping, setIsSkipping] = useState(false);
+
+  // Expand search state
+  const [expandCandidates, setExpandCandidates] = useState<CandidateArea[]>([]);
+  const [expandCandidateStatus, setExpandCandidateStatus] = useState<Map<string, CandidateStatus>>(new Map());
+  const [expandDoneCount, setExpandDoneCount] = useState(0);
+  const [expandCurrentAreaName, setExpandCurrentAreaName] = useState<string | null>(null);
+  const [expandCurrentPhrase, setExpandCurrentPhrase] = useState('');
+
+  // Filter breakdown state
+  const [rejectedAreas, setRejectedAreas] = useState<ScoringResult['rejected']>([]);
+  const [passedButNotTop, setPassedButNotTop] = useState<AreaProfile[]>([]);
 
   const centreRef = useRef<GeoLocation | null>(null);
   const cardRefs = useRef<(HTMLDivElement | null)[]>([]);
   const hasRun = useRef(false);
   const phraseIndexRef = useRef(0);
+  const skipRequestedRef = useRef(false);
 
   const allResults = resultRings.flatMap((r) => r.items);
 
@@ -216,8 +235,54 @@ export default function ResultsPage() {
         { label: 'UK', lat: 53.48, lng: -2.24 };
 
       centreRef.current = centre;
+      setMapCentre({ lat: centre.lat, lng: centre.lng });
+      setIsFiltering(true);
+      setCurrentPhrase('Finding land areas...');
 
-      const allCandidates = await generateValidCandidates(centre, 20);
+      const baseCandidates = await generateValidCandidates(centre, 20);
+
+      // Inject extra candidate points near any areas the user is considering.
+      // For each named area, geocode it and generate a small supplementary hex
+      // grid (5 km radius, 2 km spacing). Points that overlap the base grid are
+      // deduplicated by id so no area is fetched twice.
+      let allCandidates = baseCandidates;
+      if (state.environment.consideringAreas.length > 0) {
+        const existingIds = new Set(baseCandidates.map((c) => c.id));
+        const extras: CandidateArea[] = [];
+
+        await Promise.allSettled(
+          state.environment.consideringAreas.map(async (areaName) => {
+            try {
+              const res = await fetch(
+                `/api/geocode?q=${encodeURIComponent(areaName)}&countrycodes=gb`
+              );
+              const data = await res.json();
+              if (!Array.isArray(data) || data.length === 0) return;
+              const geocodedLoc = {
+                label: areaName,
+                lat: parseFloat(data[0].lat),
+                lng: parseFloat(data[0].lon),
+              };
+              if (isNaN(geocodedLoc.lat) || isNaN(geocodedLoc.lng)) return;
+
+              const supplementary = generateCandidateAreas(geocodedLoc, 5, 2);
+              const validSupplementary = await filterValidCandidates(supplementary);
+              for (const c of validSupplementary) {
+                if (!existingIds.has(c.id)) {
+                  existingIds.add(c.id);
+                  extras.push(c);
+                }
+              }
+            } catch {
+              // Skip areas that fail to geocode
+            }
+          })
+        );
+
+        allCandidates = [...baseCandidates, ...extras];
+      }
+
+      setIsFiltering(false);
       setCandidates(allCandidates);
 
       const initialStatus = new Map<string, CandidateStatus>();
@@ -231,6 +296,8 @@ export default function ResultsPage() {
       const profileMap = new Map<string, AreaProfile>();
 
       for (let i = 0; i < allCandidates.length; i += BATCH_SIZE) {
+        if (skipRequestedRef.current) break;
+
         const batch = allCandidates.slice(i, i + BATCH_SIZE);
 
         setActiveCandidateIndex(i);
@@ -309,11 +376,18 @@ export default function ResultsPage() {
           })
         );
 
+        let batchViable = 0;
         for (const r of batchResults) {
           if (r.status === 'fulfilled') {
             areaProfiles.push(r.value.profile);
             profileMap.set(r.value.candidateId, r.value.profile);
+            if (getFilterStatus(r.value.profile, state) === 'checked') {
+              batchViable++;
+            }
           }
+        }
+        if (batchViable > 0) {
+          setViableCount(prev => prev + batchViable);
         }
 
         setCandidateStatus(prev => {
@@ -350,10 +424,12 @@ export default function ResultsPage() {
         await new Promise(resolve => setTimeout(resolve, 1200));
       }
 
-      const scored = scoreAndRankAreas(areaProfiles, state);
+      const { topResults, rejected, passedButNotTop } = scoreAndRankAreas(areaProfiles, state);
+      setRejectedAreas(rejected);
+      setPassedButNotTop(passedButNotTop);
 
       const namedResults = await Promise.all(
-        scored.map(async (s) => {
+        topResults.map(async (s) => {
           try {
             const res = await fetch(
               `/api/geocode?q=${s.area.coordinates.lat},${s.area.coordinates.lng}`
@@ -389,6 +465,7 @@ export default function ResultsPage() {
       setSearchedRadiusKm(20);
       setTransitionPhase('done');
     } catch (err) {
+      setIsFiltering(false);
       setError(err instanceof Error ? err.message : 'Something went wrong');
       setTransitionPhase('done');
     }
@@ -406,6 +483,8 @@ export default function ResultsPage() {
     const outerKm = searchedRadiusKm + 20;
 
     setIsLoadingMore(true);
+    setExpandDoneCount(0);
+    setExpandCurrentPhrase(`Scanning ${innerKm}–${outerKm} km ring...`);
     try {
       const STANDARD_SPACING = 3;
       const MINIMUM_ACCEPTABLE = 100;
@@ -423,11 +502,33 @@ export default function ResultsPage() {
         candidates = await filterValidCandidates(denseRing);
       }
 
+      setExpandCandidates(candidates);
+      const initialStatus = new Map<string, CandidateStatus>();
+      candidates.forEach(c => initialStatus.set(c.id, 'pending'));
+      setExpandCandidateStatus(initialStatus);
+
       const BATCH_SIZE = 4;
       const areaProfiles: AreaProfile[] = [];
 
       for (let i = 0; i < candidates.length; i += BATCH_SIZE) {
         const batch = candidates.slice(i, i + BATCH_SIZE);
+
+        setExpandCandidateStatus(prev => {
+          const newStatus = new Map(prev);
+          batch.forEach(c => newStatus.set(c.id, 'checking'));
+          return newStatus;
+        });
+
+        fetch(`/api/geocode?q=${batch[0].lat},${batch[0].lng}`)
+          .then((r) => r.json())
+          .then((data: NominatimResult[]) => {
+            if (Array.isArray(data) && data.length > 0) {
+              const name = extractAreaName(data) || data[0].display_name.split(',')[0].trim();
+              setExpandCurrentAreaName(name);
+              setExpandCurrentPhrase(getNextPhrase());
+            }
+          })
+          .catch(() => {});
 
         const batchResults = await Promise.allSettled(
           batch.map(async (c) => {
@@ -474,12 +575,21 @@ export default function ResultsPage() {
         for (const r of batchResults) {
           if (r.status === 'fulfilled') areaProfiles.push(r.value);
         }
+
+        setExpandCandidateStatus(prev => {
+          const newStatus = new Map(prev);
+          batch.forEach(c => newStatus.set(c.id, 'checked'));
+          return newStatus;
+        });
+        setExpandDoneCount((i + BATCH_SIZE));
       }
 
-      const scored = scoreAndRankAreas(areaProfiles, state);
+      const { topResults, rejected, passedButNotTop } = scoreAndRankAreas(areaProfiles, state);
+      setRejectedAreas(rejected);
+      setPassedButNotTop(passedButNotTop);
 
       const namedResults = await Promise.all(
-        scored.map(async (s) => {
+        topResults.map(async (s) => {
           try {
             const res = await fetch(
               `/api/geocode?q=${s.area.coordinates.lat},${s.area.coordinates.lng}`
@@ -516,6 +626,9 @@ export default function ResultsPage() {
       setSearchedRadiusKm(outerKm);
     } finally {
       setIsLoadingMore(false);
+      setExpandCandidates([]);
+      setExpandCandidateStatus(new Map());
+      setExpandDoneCount(0);
     }
   }
 
@@ -530,6 +643,11 @@ export default function ResultsPage() {
 
   function handleCardClick(index: number) {
     setActiveIndex(index);
+  }
+
+  function handleSkip() {
+    skipRequestedRef.current = true;
+    setIsSkipping(true);
   }
 
   function handleStartOver() {
@@ -550,43 +668,95 @@ export default function ResultsPage() {
   }
 
   const isLoading = transitionPhase !== 'done';
-  const centre = centreRef.current ?? { lat: 53.48, lng: -2.24 };
+  const isSearchingMore = isLoadingMore;
+  const centre = mapCentre ?? { lat: 53.48, lng: -2.24 };
+
+  // Determine which candidates/progress to show based on search phase
+  const displayCandidates = isSearchingMore ? expandCandidates : candidates;
+  const displayDoneCount = isSearchingMore ? expandDoneCount : doneCount;
+  const displayCurrentAreaName = isSearchingMore ? expandCurrentAreaName : currentAreaName;
+  const displayCurrentPhrase = isSearchingMore ? expandCurrentPhrase : currentPhrase;
+  const displayIsFiltering = isSearchingMore ? false : isFiltering;
 
   return (
     <div className="min-h-screen">
       <SiteHeader />
 
-      {isLoading && !error && (
-        <LoadingProgressBar done={doneCount} total={candidates.length} />
+      {(isLoading || isSearchingMore) && !error && (
+        <LoadingProgressBar
+          done={displayDoneCount}
+          total={displayCandidates.length}
+          indeterminate={displayIsFiltering}
+        />
       )}
 
-      {isLoading && !error && candidates.length > 0 && (
+      {(isLoading || isSearchingMore) && mapCentre && (
         <div className="relative">
           <LoadingMap
             centre={centre}
             onMapReady={setMapInstance}
+            candidates={displayCandidates}
             activeCandidateIndex={activeCandidateIndex}
-            candidates={candidates}
+            candidateStatus={candidateStatus}
           />
           <LoadingOverlay
-            areaName={currentAreaName}
-            phrase={currentPhrase}
+            areaName={displayIsFiltering ? null : displayCurrentAreaName}
+            phrase={displayCurrentPhrase}
+            viableCount={viableCount}
+            doneCount={displayDoneCount}
+            totalCount={displayCandidates.length}
+            isSkipping={isSkipping}
+            onSkip={handleSkip}
           />
         </div>
       )}
 
-      {!isLoading && !error && (
+      {!isLoading && !isSearchingMore && !error && (
         <div className="mx-auto max-w-5xl px-4 py-6">
           <h2 className="mb-6 text-lg text-muted-foreground">Your Results</h2>
 
           {allResults.length === 0 ? (
             <Card>
-              <CardContent className="py-12 text-center">
-                <p className="text-lg font-medium">No matching areas found</p>
-                <p className="mt-2 text-sm text-muted-foreground">
-                  Your preferences are quite specific. Try widening the search radius or adjusting a priority or two.
-                </p>
-                <div className="mt-6 flex flex-col items-center gap-3">
+              <CardContent className="py-8">
+                <div className="text-center mb-6">
+                  <p className="text-lg font-medium">No matching areas found</p>
+                  <p className="mt-2 text-sm text-muted-foreground">
+                    Your filters rejected all checked areas. Here&apos;s what happened:
+                  </p>
+                </div>
+
+                <div className="space-y-4 mb-6 max-h-80 overflow-y-auto">
+                  {state.commute.commuteTimeIsHardCap && rejectedAreas.some(r => r.reasons.includes('commute')) && (
+                    <FilterBreakdown
+                      title="Commute time"
+                      description={`Over ${formatMinutes(state.commute.maxCommuteTime)}`}
+                      areas={rejectedAreas.filter(r => r.reasons.includes('commute')).map(r => r.area)}
+                      defaultOpen={true}
+                    />
+                  )}
+
+                  {state.environment.areaTypes.length > 0 && rejectedAreas.some(r => r.reasons.includes('areaType')) && (
+                    <FilterBreakdown
+                      title="Area type"
+                      description={`Not in: ${state.environment.areaTypes.join(', ')}`}
+                      areas={rejectedAreas.filter(r => r.reasons.includes('areaType')).map(r => r.area)}
+                    />
+                  )}
+
+                  {state.environment.excludeAreas.length > 0 && rejectedAreas.some(r => r.reasons.includes('excludedArea')) && (
+                    <FilterBreakdown
+                      title="Excluded areas"
+                      description={`You excluded: ${state.environment.excludeAreas.join(', ')}`}
+                      areas={rejectedAreas.filter(r => r.reasons.includes('excludedArea')).map(r => r.area)}
+                    />
+                  )}
+                </div>
+
+                <div className="text-center text-sm text-muted-foreground mb-6">
+                  <p>Try adjusting these filters or widening your search radius.</p>
+                </div>
+
+                <div className="flex flex-col items-center gap-3">
                   <Button onClick={handleSearchMore} disabled={isLoadingMore}>
                     {isLoadingMore
                       ? `Searching ${searchedRadiusKm}–${searchedRadiusKm + 20} km...`
@@ -614,6 +784,7 @@ export default function ResultsPage() {
                 hoverIndex={hoverIndex}
                 onMarkerClick={handleMarkerClick}
                 onMarkerHover={handleMarkerHover}
+                disabled={isLoading}
               />
 
               <div className="space-y-3">
@@ -662,16 +833,6 @@ export default function ResultsPage() {
                   </React.Fragment>
                 ))}
               </div>
-
-              {isLoadingMore && (
-                <Card>
-                  <CardContent className="py-8 text-center">
-                    <p className="text-sm font-medium">
-                      Searching {searchedRadiusKm}–{searchedRadiusKm + 20} km from your centre...
-                    </p>
-                  </CardContent>
-                </Card>
-              )}
 
               <AreaInfoModal area={modalArea} onClose={() => setModalArea(null)} />
 

@@ -31,7 +31,23 @@ State involved: `resultRings: ResultRing[]` (accumulates rings), `searchedRadius
 
 `generateCandidateAreas(center, radiusKm, spacingKm)` creates a hex grid of candidate points within a circle around the centre.
 
-- **centre** = user's work location or family location, falling back to `[53.48, -2.24]` (Manchester)
+- **centre** = resolved in priority order:
+  1. `state.commute.workLocation` — for non-remote users this is the geocoded workplace; for remote users this is the anchor city chosen by `resolveRegionAnchor()` (see below).
+  2. `state.family.familyLocation` — used if no work/region location was set.
+  3. Hardcoded fallback `[53.48, -2.24]` (Manchester) — only reached when the quick-survey remote user selected "Anywhere in the UK" and no family location was provided.
+
+#### Remote region anchors (`src/app/quick-survey/page.tsx` — `resolveRegionAnchor`)
+
+Each UK region in `REMOTE_REGIONS` stores three named anchor cities (`urban`, `suburban`, `rural`). When a remote user picks a region, `resolveRegionAnchor()` picks the most appropriate anchor based on their area type preference:
+
+| Area type preference | Anchor chosen |
+|---|---|
+| `city_centre` or `inner_suburb` selected | `urban` anchor (e.g. Glasgow for Scotland) |
+| `outer_suburb` selected (without urban) | `suburban` anchor (e.g. Edinburgh) |
+| `town` or `rural` selected (without urban/suburban) | `rural` anchor (e.g. Perth) |
+| No preference selected | `urban` anchor (best default — most populated areas nearby) |
+
+This ensures the hex grid fans out from a real populated centre rather than a geographic midpoint (which could be sea, mountains, or moorland).
 - **radiusKm** = 20 (default)
 - **spacingKm** = 3 (default) — but see smart density below
 - Returns `CandidateArea[]` with `{ id, name: '', lat, lng }` — name is populated later via postcode lookup
@@ -107,8 +123,10 @@ Speed assumptions (km/h): drive=30, train=50 (+10min overhead), bus=15, cycle=15
 
 `extractWeights(state)` maps survey responses to a `ScoringWeights` object:
 - 8 lifestyle Likert values → normalized 0-1 weights
-- Transport Likert values → normalized weights
+- Transport Likert values → normalized weights (`publicTransport`, `trainStation`)
+- `broadband` = `normalizeLikert(broadbandImportance)` — scored against area-type proxy (city_centre/inner_suburb=1.0, outer_suburb/town=0.7, rural=0.3)
 - Environment Likert values → normalized weights
+- `schools` — derived from `childrenStatus` + `schoolPriority`: `no children → 0`, `not_important → 0.1`, `has children + priority → 0.75`
 - `familyProximity` from family step
 - `socialScene` from family `socialImportance`
 - `commute` = `daysPerWeek / 5`

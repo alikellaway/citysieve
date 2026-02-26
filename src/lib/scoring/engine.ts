@@ -1,6 +1,6 @@
 import type { SurveyState, CommuteMode } from '@/lib/survey/types';
 import { extractWeights, type ScoringWeights } from './weights';
-import { applyHardFilters } from './filters';
+import { applyHardFiltersWithReasons, type RejectedArea } from './filters';
 import { bestCommuteTime } from './commute';
 
 export interface AreaProfile {
@@ -28,6 +28,12 @@ export interface ScoredArea {
   highlights: string[];
   breakdown: Record<string, number>;
   weights: ScoringWeights;
+}
+
+export interface ScoringResult {
+  topResults: ScoredArea[];
+  rejected: RejectedArea[];
+  passedButNotTop: AreaProfile[];
 }
 
 export function normalizeAmenities(areas: AreaProfile[]): AreaProfile[] {
@@ -74,9 +80,14 @@ function scoreArea(
     ['gymsLeisure', weights.gymsLeisure, area.normalizedAmenities.gymsLeisure || 0],
     ['healthcare', weights.healthcare, area.normalizedAmenities.healthcare || 0],
     ['librariesCulture', weights.librariesCulture, area.normalizedAmenities.librariesCulture || 0],
+    ['schools', weights.schools, area.normalizedAmenities.schools || 0],
     ['publicTransport', weights.publicTransport, area.transport.busFrequency],
     ['trainStation', weights.trainStation, area.transport.trainStationProximity],
     ['peaceAndQuiet', weights.peaceAndQuiet, area.environment.type === 'rural' || area.environment.type === 'town' ? 0.8 : area.environment.type === 'outer_suburb' ? 0.6 : 0.3],
+    ['broadband', weights.broadband,
+      area.environment.type === 'city_centre' || area.environment.type === 'inner_suburb' ? 1.0 :
+      area.environment.type === 'outer_suburb' || area.environment.type === 'town' ? 0.7 : 0.3
+    ],
   ];
 
   // Add commute score if applicable
@@ -136,27 +147,30 @@ function scoreArea(
 export function scoreAndRankAreas(
   areas: AreaProfile[],
   state: SurveyState
-): ScoredArea[] {
+): ScoringResult {
   // 1. Normalize amenities
   const normalized = normalizeAmenities(areas);
 
-  // 2. Apply hard filters
-  const filtered = applyHardFilters(normalized, state);
+  // 2. Apply hard filters with reasons
+  const { passed, rejected } = applyHardFiltersWithReasons(normalized, state);
 
   // 3. Extract weights
   const weights = extractWeights(state);
 
   // 4. Score each area
-  const scored = filtered.map((area) => scoreArea(area, weights, state));
+  const scored = passed.map((area) => scoreArea(area, weights, state));
 
   // 5. Sort by score descending
   scored.sort((a, b) => b.score - a.score);
 
-  // 6. Return top 10
-  return scored.slice(0, 10);
+  // 6. Separate top 10 from rest
+  const topResults = scored.slice(0, 10);
+  const passedButNotTop = scored.slice(10).map((s) => s.area);
+
+  return { topResults, rejected, passedButNotTop };
 }
 
 export function getFilterStatus(area: AreaProfile, state: SurveyState): 'checked' | 'filtered' {
-  const filtered = applyHardFilters([area], state);
-  return filtered.length > 0 ? 'checked' : 'filtered';
+  const { passed } = applyHardFiltersWithReasons([area], state);
+  return passed.length > 0 ? 'checked' : 'filtered';
 }

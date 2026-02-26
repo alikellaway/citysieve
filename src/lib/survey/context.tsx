@@ -26,6 +26,7 @@ const initialState: SurveyState = {
     maxCommuteTime: 45,
     commuteTimeIsHardCap: true,
     commuteModes: [],
+    remoteRegion: null,
   },
   family: {
     householdSize: 1,
@@ -55,7 +56,6 @@ const initialState: SurveyState = {
   environment: {
     areaTypes: [],
     peaceAndQuiet: 3,
-    developmentFeeling: null,
     excludeAreas: [],
     consideringAreas: [],
   },
@@ -118,6 +118,10 @@ function loadState(): SurveyState {
         const oldAreaType = env.areaType as string | null;
         env.areaTypes = oldAreaType ? [oldAreaType] : [];
         delete env.areaType;
+      }
+      // Migration: remove developmentFeeling (no longer used)
+      if (env && 'developmentFeeling' in env) {
+        delete env.developmentFeeling;
       }
       // Merge with initialState to fill in any fields added after the stored
       // state was written (e.g. commuteTimeIsHardCap for existing sessions).

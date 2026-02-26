@@ -22,7 +22,6 @@ export type QuickPriorityKey =
   | 'publicTransportReliance'
   | 'trainStationImportance'
   | 'peaceAndQuiet'
-  | 'familyProximityImportance'
   | 'socialImportance';
 
 /** Display labels for each priority chip — kept in sync with HIGHLIGHT_LABELS. */
@@ -38,7 +37,6 @@ export const QUICK_PRIORITY_LABELS: Record<QuickPriorityKey, string> = {
   publicTransportReliance: 'Public transport',
   trainStationImportance: 'Train access',
   peaceAndQuiet: 'Peace & quiet',
-  familyProximityImportance: 'Near family',
   socialImportance: 'Social scene',
 };
 
@@ -47,6 +45,11 @@ export const QUICK_PRIORITY_KEYS = Object.keys(
 ) as QuickPriorityKey[];
 
 export interface QuickSurveyAnswers {
+  /**
+   * For non-remote users: the geocoded work location.
+   * For remote users: the chosen region's central GeoLocation, or null if "Anywhere in the UK"
+   *   (results page falls back to the UK-centre default in that case).
+   */
   workLocation: GeoLocation | null;
   /** false when user selects "fully remote" */
   isRemote: boolean;
@@ -54,6 +57,8 @@ export interface QuickSurveyAnswers {
   maxCommuteTime: number;
   areaTypes: AreaType[];
   topPriorities: QuickPriorityKey[];
+  /** For remote users: the selected region (e.g. 'london', 'north') */
+  remoteRegion: string | null;
 }
 
 const HIGH: LikertValue = 5;
@@ -89,11 +94,12 @@ export function buildQuickSurveyState(
     },
 
     commute: {
-      workLocation: answers.isRemote ? null : answers.workLocation,
+      workLocation: answers.workLocation,
       daysPerWeek: answers.isRemote ? 0 : 5,
       maxCommuteTime: answers.maxCommuteTime,
       commuteTimeIsHardCap: true,
       commuteModes: answers.commuteModes,
+      remoteRegion: answers.isRemote ? answers.remoteRegion : null,
     },
 
     family: {
@@ -101,7 +107,7 @@ export function buildQuickSurveyState(
       childrenStatus: null,
       schoolPriority: null,
       familyLocation: null,
-      familyProximityImportance: likert('familyProximityImportance'),
+      familyProximityImportance: NEUTRAL,
       socialImportance: likert('socialImportance'),
     },
 
@@ -127,7 +133,6 @@ export function buildQuickSurveyState(
     environment: {
       areaTypes: answers.areaTypes,
       peaceAndQuiet: likert('peaceAndQuiet'),
-      developmentFeeling: null,
       excludeAreas: [],
       consideringAreas: [],
     },

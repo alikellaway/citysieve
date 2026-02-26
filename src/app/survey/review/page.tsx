@@ -7,6 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import type { SurveyState } from '@/lib/survey/types';
+import { formatMinutes } from '@/lib/format-duration';
 
 const LIKERT_LABELS: Record<number, string> = {
   1: 'Not important',
@@ -35,7 +36,7 @@ const LABEL_MAPS = {
   carOwnership: { yes: 'Yes', no: 'No', considering: 'Considering' },
   cycleFrequency: { yes: 'Yes, regularly', sometimes: 'Sometimes', no: 'No' },
   areaType: { city_centre: 'City centre', inner_suburb: 'Inner suburb', outer_suburb: 'Outer suburb', town: 'Town', rural: 'Village / Rural' },
-  developmentFeeling: { fine_with_it: 'Fine with it', prefer_established: 'Prefer established', no_preference: 'No preference' },
+
 } as const;
 
 function label(map: keyof typeof LABEL_MAPS, val: string | null): string {
@@ -129,7 +130,7 @@ export default function ReviewPage() {
           />
           <ReviewItem
             label="Max commute"
-            value={`${commute.maxCommuteTime} mins${commute.daysPerWeek > 0 ? (commute.commuteTimeIsHardCap ? ' (strict)' : ' (preference)') : ''}`}
+            value={`${formatMinutes(commute.maxCommuteTime)}${commute.daysPerWeek > 0 ? (commute.commuteTimeIsHardCap ? ' (strict)' : ' (preference)') : ''}`}
           />
           <ReviewItem
             label="Commute modes"
@@ -222,10 +223,7 @@ export default function ReviewPage() {
             label="Peace & quiet"
             value={likert(environment.peaceAndQuiet)}
           />
-          <ReviewItem
-            label="New development"
-            value={label('developmentFeeling', environment.developmentFeeling)}
-          />
+
           <div className="flex items-start justify-between gap-4 py-1">
             <span className="text-sm text-muted-foreground">Excluded areas</span>
             <div className="flex flex-wrap justify-end gap-1">

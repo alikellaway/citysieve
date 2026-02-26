@@ -5,6 +5,7 @@ import { useSurvey } from '@/hooks/useSurvey';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
 import { Slider } from '@/components/ui/slider';
+import { formatMinutes } from '@/lib/format-duration';
 import { Switch } from '@/components/ui/switch';
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
 import { LocationAutocomplete } from '@/components/survey/LocationAutocomplete';
@@ -38,8 +39,8 @@ export default function CommutePage() {
           <LocationAutocomplete
             value={commute.workLocation}
             onChange={(loc) => updateCommute({ workLocation: loc })}
-            label="Where do you work?"
-            placeholder="Search for your workplace..."
+            label={commute.daysPerWeek === 0 ? 'Where would you roughly like to live?' : 'Where do you work?'}
+            placeholder={commute.daysPerWeek === 0 ? 'Search for a city, region, or postcode…' : 'Search for your workplace...'}
           />
 
           {/* Days Per Week */}
@@ -65,7 +66,7 @@ export default function CommutePage() {
           <div className="space-y-3">
             <Label>
               Max commute time:{' '}
-              <span className="font-bold text-primary">{commute.maxCommuteTime} mins</span>
+              <span className="font-bold text-primary">{formatMinutes(commute.maxCommuteTime)}</span>
             </Label>
             <Slider
               value={[commute.maxCommuteTime]}

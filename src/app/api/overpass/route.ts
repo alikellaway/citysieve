@@ -44,17 +44,79 @@ export async function GET(request: NextRequest) {
   node["amenity"="library"](around:${radius},${lat},${lng});
   node["amenity"="theatre"](around:${radius},${lat},${lng});
   node["amenity"="cinema"](around:${radius},${lat},${lng});
+  node["amenity"="school"](around:${radius},${lat},${lng});
+  node["amenity"="kindergarten"](around:${radius},${lat},${lng});
   node["railway"="station"](around:${radius},${lat},${lng});
   node["railway"="halt"](around:${radius},${lat},${lng});
   node["highway"="bus_stop"](around:${radius},${lat},${lng});
 );
 out body;`;
 
-  const res = await fetch('https://overpass-api.de/api/interpreter', {
-    method: 'POST',
-    body: `data=${encodeURIComponent(query)}`,
-    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-  });
+const OVERPASS_ENDPOINTS = [
+  'https://overpass-api.de/api/interpreter',
+  'https://overpass.kumi.systems/api/interpreter',
+  'https://overpass.openstreetmap.fr/api/interpreter',
+];
+const FETCH_TIMEOUT = 15000;
+
+async function fetchWithTimeout(
+  url: string,
+  options: RequestInit & { timeout?: number }
+): Promise<Response> {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), options.timeout || FETCH_TIMEOUT);
+
+  try {
+    const res = await fetch(url, {
+      ...options,
+      signal: controller.signal,
+    });
+    return res;
+  } catch (error) {
+    clearTimeout(timeout);
+    throw error;
+  } finally {
+    clearTimeout(timeout);
+  }
+}
+
+async function fetchWithRetry(
+  query: string,
+  endpointIndex = 0
+): Promise<Response> {
+  if (endpointIndex >= OVERPASS_ENDPOINTS.length) {
+    throw new Error('All Overpass endpoints failed');
+  }
+
+  const endpoint = OVERPASS_ENDPOINTS[endpointIndex];
+
+  try {
+    const res = await fetchWithTimeout(endpoint, {
+      method: 'POST',
+      body: `data=${encodeURIComponent(query)}`,
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      timeout: FETCH_TIMEOUT,
+    });
+    return res;
+  } catch (error) {
+    if (endpointIndex < OVERPASS_ENDPOINTS.length - 1) {
+      await new Promise((r) => setTimeout(r, 1000 * (endpointIndex + 1)));
+      return fetchWithRetry(query, endpointIndex + 1);
+    }
+    throw error;
+  }
+}
+
+  let res: Response;
+  try {
+    res = await fetchWithRetry(query);
+  } catch (error) {
+    console.error('Overpass fetch failed:', error);
+    return NextResponse.json(
+      { error: 'Failed to fetch Overpass data. Please try again later.' },
+      { status: 503 }
+    );
+  }
 
   const raw = await res.json();
 
@@ -67,6 +129,7 @@ out body;`;
     gymsLeisure: 0,
     healthcare: 0,
     librariesCulture: 0,
+    schools: 0,
     trainStation: 0,
     busStop: 0,
   };
@@ -81,6 +144,7 @@ out body;`;
     if (tags.leisure === 'fitness_centre' || tags.leisure === 'sports_centre') counts.gymsLeisure++;
     if (tags.amenity === 'pharmacy' || tags.amenity === 'hospital' || tags.amenity === 'doctors') counts.healthcare++;
     if (tags.amenity === 'library' || tags.amenity === 'theatre' || tags.amenity === 'cinema') counts.librariesCulture++;
+    if (tags.amenity === 'school' || tags.amenity === 'kindergarten') counts.schools++;
     if (tags.railway === 'station' || tags.railway === 'halt') counts.trainStation++;
     if (tags.highway === 'bus_stop') counts.busStop++;
   }

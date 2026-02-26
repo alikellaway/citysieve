@@ -6,6 +6,7 @@ export type AmenityCategory =
   | 'gymsLeisure'
   | 'healthcare'
   | 'librariesCulture'
+  | 'schools'
   | 'trainStation'
   | 'busStop';
 
@@ -26,6 +27,7 @@ export const AMENITY_CATEGORIES: AmenityCategory[] = [
   'gymsLeisure',
   'healthcare',
   'librariesCulture',
+  'schools',
   'trainStation',
   'busStop',
 ];
@@ -38,6 +40,7 @@ export const CATEGORY_CONFIG: Record<AmenityCategory, { color: string; icon: str
   gymsLeisure: { color: '#8b5cf6', icon: '🏋️', label: 'Gyms & Leisure' },
   healthcare: { color: '#ec4899', icon: '💊', label: 'Healthcare' },
   librariesCulture: { color: '#6366f1', icon: '📚', label: 'Culture' },
+  schools: { color: '#0ea5e9', icon: '🏫', label: 'Schools' },
   trainStation: { color: '#3b82f6', icon: '🚂', label: 'Train Stations' },
   busStop: { color: '#64748b', icon: '🚌', label: 'Bus Stops' },
 };

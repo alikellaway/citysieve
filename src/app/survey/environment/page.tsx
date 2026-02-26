@@ -5,13 +5,12 @@ import { useSurvey } from '@/hooks/useSurvey';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
 import { Checkbox } from '@/components/ui/checkbox';
-import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
+
 import { LikertScale } from '@/components/survey/LikertScale';
 import { TagInput } from '@/components/survey/TagInput';
 import { StepNavigation } from '@/components/survey/StepNavigation';
 import type {
   AreaType,
-  DevelopmentFeeling,
   LikertValue,
 } from '@/lib/survey/types';
 
@@ -23,11 +22,6 @@ const AREA_TYPE_OPTIONS: { value: AreaType; label: string }[] = [
   { value: 'rural', label: 'Village / Rural' },
 ];
 
-const DEVELOPMENT_OPTIONS: { value: DevelopmentFeeling; label: string }[] = [
-  { value: 'fine_with_it', label: 'Fine with it' },
-  { value: 'prefer_established', label: 'Prefer established areas' },
-  { value: 'no_preference', label: 'No preference' },
-];
 
 export default function EnvironmentPage() {
   const { state, updateEnvironment, setStep } = useSurvey();
@@ -106,28 +100,6 @@ export default function EnvironmentPage() {
             }
           />
 
-          {/* Development Feeling */}
-          <div className="space-y-2">
-            <Label>How do you feel about new development?</Label>
-            <RadioGroup
-              value={environment.developmentFeeling ?? ''}
-              onValueChange={(val) =>
-                updateEnvironment({
-                  developmentFeeling: val as DevelopmentFeeling,
-                })
-              }
-            >
-              {DEVELOPMENT_OPTIONS.map((opt) => (
-                <div key={opt.value} className="flex items-center space-x-2">
-                  <RadioGroupItem
-                    value={opt.value}
-                    id={`dev-${opt.value}`}
-                  />
-                  <Label htmlFor={`dev-${opt.value}`}>{opt.label}</Label>
-                </div>
-              ))}
-            </RadioGroup>
-          </div>
 
           {/* Exclude Areas */}
           <TagInput

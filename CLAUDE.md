@@ -58,6 +58,68 @@ Read these on-demand based on the task at hand:
 | Modifying UI components, understanding props/behavior | [docs/components.md](docs/components.md) |
 | VPS setup, Docker, Nginx, SSL, CI/CD deploy pipeline | [docs/deployment.md](docs/deployment.md) |
 
+## Survey → Results Data Flow
+
+Understanding how user answers translate to external data fetching and scoring.
+
+### Survey Step Impact
+
+| Step | Data Collected | External APIs Affected | Scoring/Filtering Role |
+|------|----------------|----------------------|------------------------|
+| **1. Profile** | ageRange, tenureType, budget, householdType | None | **None** — purely for user profiling |
+| **2. Commute** | workLocation, daysPerWeek, maxCommuteTime, commuteTimeIsHardCap, commuteModes | None directly — uses haversine distance | Hard filter: excludes areas exceeding `maxCommuteTime` if `commuteTimeIsHardCap === true`. Weight: `daysPerWeek / 5` |
+| **3. Family** | childrenStatus, schoolPriority, familyLocation, familyProximityImportance, socialImportance | **Overpass API** fetches school + kindergarten counts | Weight: `familyProximityImportance` → family proximity score. Weight: `socialImportance` → pubs + restaurants combined. Weight: derived from `childrenStatus` + `schoolPriority` → school count score (`no children → 0`, `not_important → 0.1`, `has children + priority → 0.75`) |
+| **4. Lifestyle** | 8 Likert values (1-5): supermarkets, highStreet, pubsBars, restaurantsCafes, parksGreenSpaces, gymsLeisure, healthcare, librariesCulture | **Overpass API** (`/api/overpass`) fetches counts for all 8 amenity types within 1km of each candidate area | **Primary scoring** — each Likert value becomes a weight multiplied against normalized amenity counts |
+| **5. Transport** | carOwnership, publicTransportReliance, trainStationImportance, cycleFrequency, broadbandImportance | **Overpass API** fetches bus stop & train station counts | Weight: `publicTransportReliance` → bus frequency score. Weight: `trainStationImportance` → train proximity score. Weight: `broadbandImportance` → area-type proxy (city_centre/inner_suburb=1.0, outer_suburb/town=0.7, rural=0.3) |
+| **6. Environment** | areaTypes[], peaceAndQuiet, excludeAreas[], consideringAreas[] | None — area type derived from distance to centre | Hard filter: `areaTypes` filters by city_centre ↔ rural scale. Hard filter: `excludeAreas` removes areas by name. `consideringAreas` → geocoded at search time; extra 5km hex grids injected as candidates |
+
+### Pipeline Summary
+
+```
+Survey completes → SurveyState saved to localStorage
+       ↓
+Results page loads state, determines centre point:
+  workLocation → familyLocation → [53.48, -2.24] (Manchester fallback)
+       ↓
+Generate ~100-200 candidate grid points (hex pattern, 20km radius)
+  + extra 5km grids around each consideringArea (geocoded, deduped by id)
+       ↓
+For each point (batched 4 at a time):
+  1. /api/overpass → 11 amenity counts (supermarkets, shops, pubs, restaurants, 
+     parks, gyms, healthcare, libraries, schools, train stations, bus stops)
+  2. postcodes.io → UK postcode district + place name
+  3. Calculate commute estimate (if workLocation provided)
+       ↓
+Apply hard filters:
+  - Commute time exceeds max? (if hard cap enabled)
+  - Area type not in preferred types?
+  - Area name in exclude list?
+       ↓
+Extract weights from Likert values (normalize: (value-1)/4)
+       ↓
+Score each area: weighted sum of normalized amenities, transport, environment, 
+commute, family proximity, social scene
+       ↓
+Sort by score descending, return top 10
+       ↓
+Display on map + cards with highlights
+```
+
+### Key Files for This Flow
+
+| What | File |
+|------|------|
+| Survey answers → localStorage | `src/lib/survey/context.tsx` |
+| Survey step definitions | `src/lib/survey/steps.ts`, `src/lib/survey/types.ts` |
+| Answers → scoring weights | `src/lib/scoring/weights.ts` |
+| Answers → hard filters | `src/lib/scoring/filters.ts` |
+| Commute estimation | `src/lib/scoring/commute.ts` |
+| Candidate area generation | `src/lib/data/area-generator.ts` |
+| Overpass API queries | `src/app/api/overpass/route.ts` |
+| POI type → OSM tag mapping | `src/lib/poi-types.ts` |
+| Results page orchestration | `src/app/results/page.tsx` |
+| Scoring engine | `src/lib/scoring/engine.ts` |
+
 ## Docs Maintenance
 
 When modifying code, update the corresponding doc file:

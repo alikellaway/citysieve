@@ -24,34 +24,30 @@ const TILE_LAYERS = {
   },
 };
 
-const PIN_SIZES: Record<PinState, { width: number; height: number; anchorY: number }> = {
-  default: { width: 28, height: 38, anchorY: 38 },
-  hover: { width: 32, height: 43, anchorY: 43 },
-  active: { width: 36, height: 48, anchorY: 48 },
+// Pill badge: rounded rectangle body + small sharp pointer triangle
+const POINTER_H = 7;
+const PIN_SIZES: Record<PinState, { pillW: number; pillH: number; r: number; fontSize: number }> = {
+  default: { pillW: 36, pillH: 24, r: 6,  fontSize: 12 },
+  hover:   { pillW: 40, pillH: 26, r: 7,  fontSize: 13 },
+  active:  { pillW: 44, pillH: 28, r: 8,  fontSize: 14 },
 };
 
 function createPinIcon(rank: number, state: PinState): L.DivIcon {
   const color = getRankColor(rank);
-  const { width, height, anchorY } = PIN_SIZES[state];
-  const fontSize = state === 'active' ? 14 : state === 'hover' ? 13 : 12;
-  const topRadius = (width - 4) / 2;
+  const { pillW, pillH, r, fontSize } = PIN_SIZES[state];
+  const totalH = pillH + POINTER_H;
+  const cx = pillW / 2;
+  const ptw = 7; // half-width of pointer base
 
   const svg = `
-    <svg width="${width}" height="${height}" viewBox="0 0 ${width} ${height}" fill="none" xmlns="http://www.w3.org/2000/svg">
-      <path
-        d="M${width / 2} ${height - 2}
-           C${width / 2 - 3} ${height - 10} ${width / 2 - 6} ${height - 14} ${width / 2 - 6} ${topRadius + 6}
-           C${width / 2 - 6} ${topRadius - 2} ${width / 2 - topRadius} 4 ${width / 2} 4
-           C${width / 2 + topRadius} 4 ${width / 2 + 6} ${topRadius - 2} ${width / 2 + 6} ${topRadius + 6}
-           C${width / 2 + 6} ${height - 14} ${width / 2 + 3} ${height - 10} ${width / 2} ${height - 2}Z"
-        fill="${color}"
-        stroke="white"
-        stroke-width="2"
-      />
-      <circle cx="${width / 2}" cy="${topRadius + 4}" r="${topRadius - 4}" fill="${color}" />
+    <svg width="${pillW}" height="${totalH}" viewBox="0 0 ${pillW} ${totalH}" fill="none" xmlns="http://www.w3.org/2000/svg" style="filter:drop-shadow(0 2px 4px rgba(0,0,0,0.35))">
+      <rect x="1" y="1" width="${pillW - 2}" height="${pillH - 2}" rx="${r}" ry="${r}" fill="${color}" stroke="white" stroke-width="1.5"/>
+      <polygon points="${cx - ptw},${pillH - 1} ${cx + ptw},${pillH - 1} ${cx},${totalH - 1}" fill="${color}"/>
+      <line x1="${cx - ptw}" y1="${pillH - 1}" x2="${cx}" y2="${totalH - 1}" stroke="white" stroke-width="1.5" stroke-linecap="round"/>
+      <line x1="${cx + ptw}" y1="${pillH - 1}" x2="${cx}" y2="${totalH - 1}" stroke="white" stroke-width="1.5" stroke-linecap="round"/>
       <text
-        x="${width / 2}"
-        y="${topRadius + 8}"
+        x="${cx}"
+        y="${pillH / 2}"
         text-anchor="middle"
         dominant-baseline="middle"
         font-family="system-ui, -apple-system, sans-serif"
@@ -65,9 +61,9 @@ function createPinIcon(rank: number, state: PinState): L.DivIcon {
   return L.divIcon({
     html: svg,
     className: '',
-    iconSize: [width, height],
-    iconAnchor: [width / 2, anchorY],
-    popupAnchor: [0, -anchorY - 8],
+    iconSize: [pillW, totalH],
+    iconAnchor: [cx, totalH],
+    popupAnchor: [0, -totalH - 4],
   });
 }
 
@@ -77,6 +73,7 @@ interface ResultMapProps {
   hoverIndex: number | null;
   onMarkerClick: (index: number) => void;
   onMarkerHover: (index: number | null) => void;
+  disabled?: boolean;
 }
 
 function FlyToActive({ results, activeIndex }: { results: ScoredArea[]; activeIndex: number | null }) {
@@ -100,7 +97,7 @@ function TileLoadingIndicator({ onLoadingChange }: { onLoadingChange: (loading: 
   return null;
 }
 
-export function ResultMap({ results, activeIndex, hoverIndex, onMarkerClick, onMarkerHover }: ResultMapProps) {
+export function ResultMap({ results, activeIndex, hoverIndex, onMarkerClick, onMarkerHover, disabled = false }: ResultMapProps) {
   const mapRef = useRef<L.Map | null>(null);
   const { resolvedTheme } = useTheme();
   const [tilesLoading, setTilesLoading] = useState(true);
@@ -117,6 +114,11 @@ export function ResultMap({ results, activeIndex, hoverIndex, onMarkerClick, onM
       zoom={11}
       className="h-[400px] w-full rounded-lg"
       ref={mapRef}
+      dragging={!disabled}
+      zoomControl={!disabled}
+      scrollWheelZoom={!disabled}
+      doubleClickZoom={!disabled}
+      touchZoom={!disabled}
     >
       <TileLoadingIndicator onLoadingChange={setTilesLoading} />
       <TileLayer
