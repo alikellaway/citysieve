@@ -28,16 +28,8 @@ const TILE_LAYERS = {
   },
 };
 
-// Zoom levels
-const ZOOM_WAITING   = 12;
-const ZOOM_CANDIDATE = 14;
-
-// ─── State machine phases ────────────────────────────────────────────────────
-type AnimPhase =
-  | 'waiting'  // No candidates yet — parked at centre, pulser on
-  | 'flying'   // flyTo() in progress — pulser hidden
-  | 'pulsing'  // Arrived at candidate — pulser on, dwell timer running
-  | 'paused';  // User interacted — frozen
+const ZOOM_OUT = 11;
+const ZOOM_IN = 14;
 
 // ─── MapController ──────────────────────────────────────────────────────────
 function MapController({ onMapReady, initialCenter }: { onMapReady: (map: L.Map) => void; initialCenter: [number, number] }) {
@@ -45,9 +37,8 @@ function MapController({ onMapReady, initialCenter }: { onMapReady: (map: L.Map)
   const hasCenteredRef = useRef(false);
 
   useEffect(() => {
-    // Set initial center only once when map is ready
     if (!hasCenteredRef.current) {
-      map.setView(initialCenter, ZOOM_WAITING);
+      map.setView(initialCenter, ZOOM_OUT);
       hasCenteredRef.current = true;
     }
     onMapReady(map);
@@ -68,92 +59,135 @@ function TileLoadingIndicator({ onLoadingChange }: { onLoadingChange: (v: boolea
 function UserInteractionWatcher({ onInteract }: { onInteract: () => void }) {
   useMapEvents({
     dragstart: onInteract,
-    zoomstart: onInteract,
   });
+  
+  const map = useMap();
+  
+  useEffect(() => {
+    const handleUserAction = () => onInteract();
+    const container = map.getContainer();
+    
+    // Only detect true user interactions to avoid catching programmatic pans/zooms
+    container.addEventListener('wheel', handleUserAction, { passive: true });
+    container.addEventListener('touchstart', handleUserAction, { passive: true });
+    container.addEventListener('mousedown', handleUserAction, { passive: true });
+    
+    return () => {
+      container.removeEventListener('wheel', handleUserAction);
+      container.removeEventListener('touchstart', handleUserAction);
+      container.removeEventListener('mousedown', handleUserAction);
+    };
+  }, [map, onInteract]);
+  
   return null;
 }
 
-// ─── AnimationController ────────────────────────────────────────────────────
-// All mutable loop state lives in refs so the advance() function is created
-// once and never re-created, avoiding stale-closure bugs entirely.
-interface AnimationControllerProps {
+// ─── SequenceAnimator ───────────────────────────────────────────────────────
+function SequenceAnimator({
+  candidates,
+  activeCandidateIndex,
+  onPulseChange,
+}: {
   candidates: CandidateArea[];
   activeCandidateIndex: number | null;
-  candidateStatus: Map<string, CandidateStatus>;
-  onPhaseChange: (p: AnimPhase) => void;
-}
-
-function AnimationController({ candidates, activeCandidateIndex, candidateStatus, onPhaseChange }: AnimationControllerProps) {
+  onPulseChange: (active: boolean) => void;
+}) {
   const map = useMap();
+  const targetRef = useRef<CandidateArea | null>(null);
+  const isAnimatingRef = useRef(false);
+  const mountedRef = useRef(true);
+  const processQueueRef = useRef<(() => Promise<void>) | null>(null);
 
-  // ── Stable refs ───────────────────────────────────────────────────────────
-  const candidatesRef    = useRef<CandidateArea[]>([]);
-  const lastIndexRef     = useRef<number | null>(null);
-  const moveEndListenerRef = useRef<(() => void) | null>(null);
-  const mountedRef       = useRef(true);
-  const isFlyingRef     = useRef(false);
-
-  // ── Sync candidates ref ───────────────────────────────────────────────────
+  // When a new candidate starts checking, set it as the next target in the queue.
+  // We overwrite the target so the map can "skip ahead" if data fetching outpaces the animation.
   useEffect(() => {
-    candidatesRef.current = candidates;
-  }, [candidates]);
-
-  // ── Cancel moveend listener ────────────────────────────────────────────────
-  const cancelMoveEnd = useCallback(() => {
-    if (moveEndListenerRef.current) {
-      map.off('moveend', moveEndListenerRef.current);
-      moveEndListenerRef.current = null;
+    if (activeCandidateIndex !== null && candidates[activeCandidateIndex]) {
+      targetRef.current = candidates[activeCandidateIndex];
+      if (processQueueRef.current) {
+        processQueueRef.current();
+      }
     }
-  }, [map]);
+  }, [activeCandidateIndex, candidates]);
 
-  // ── Fly to current candidate when index changes ────────────────────────────
-  useEffect(() => {
-    if (!mountedRef.current) return;
-    if (activeCandidateIndex === null || activeCandidateIndex === undefined) return;
-    if (activeCandidateIndex === lastIndexRef.current) return;
-
-    const idx = activeCandidateIndex;
-    const list = candidatesRef.current;
-    if (idx >= list.length) return;
-
-    const target = list[idx];
-    lastIndexRef.current = idx;
-
-    const status = candidateStatus.get(target.id);
-    if (status === 'checking') {
-      isFlyingRef.current = true;
-      onPhaseChange('flying');
-
-      cancelMoveEnd();
-      const onArrival = () => {
-        moveEndListenerRef.current = null;
-        isFlyingRef.current = false;
-        if (!mountedRef.current) return;
-        onPhaseChange('pulsing');
-      };
-      moveEndListenerRef.current = onArrival;
-      map.once('moveend', onArrival);
-
-      map.flyTo([target.lat, target.lng], ZOOM_CANDIDATE, {
-        duration: 1.5,
-        easeLinearity: 0.25,
-      });
-    }
-  }, [activeCandidateIndex, candidateStatus, map, onPhaseChange, cancelMoveEnd]);
-
-  // ── Cleanup on unmount ──────────────────────────────────────────────────────
   useEffect(() => {
     mountedRef.current = true;
     return () => {
       mountedRef.current = false;
-      cancelMoveEnd();
-      try {
-        map.stop();
-      } catch {
-        // Map may be partially destroyed during unmount
-      }
     };
-  }, [map, cancelMoveEnd]);
+  }, []);
+
+  const processQueue = useCallback(async () => {
+    if (isAnimatingRef.current) return;
+    isAnimatingRef.current = true;
+
+    // A helper to robustly wait for a Leaflet event (or timeout)
+    const waitForEvent = (event: string, action: () => void, maxWaitMs = 1500) => {
+      return new Promise<void>((resolve) => {
+        let fired = false;
+        const handler = () => {
+          fired = true;
+          map.off(event, handler);
+          resolve();
+        };
+        map.on(event, handler);
+        action();
+        
+        setTimeout(() => {
+          if (!fired) {
+            map.off(event, handler);
+            resolve();
+          }
+        }, maxWaitMs);
+      });
+    };
+
+    while (targetRef.current && mountedRef.current) {
+      const target = targetRef.current;
+      targetRef.current = null; // Consume the target
+
+      // 1. Pulser OFF
+      onPulseChange(false);
+      await new Promise((r) => setTimeout(r, 200)); // Brief pause to let pulser fade
+      if (!mountedRef.current) break;
+
+      // 2. Zoom out
+      if (map.getZoom() > ZOOM_OUT) {
+        await waitForEvent('zoomend', () => {
+          map.setZoom(ZOOM_OUT, { animate: true, duration: 0.5 });
+        });
+      }
+      if (!mountedRef.current) break;
+
+      // 3. Pan to location
+      const currentCenter = map.getCenter();
+      if (Math.abs(currentCenter.lat - target.lat) > 0.0001 || Math.abs(currentCenter.lng - target.lng) > 0.0001) {
+        await waitForEvent('moveend', () => {
+          map.panTo([target.lat, target.lng], { animate: true, duration: 1.0 });
+        }, 2000);
+      }
+      if (!mountedRef.current) break;
+
+      // 4. Zoom in
+      if (map.getZoom() < ZOOM_IN) {
+        await waitForEvent('zoomend', () => {
+          map.setZoom(ZOOM_IN, { animate: true, duration: 0.5 });
+        });
+      }
+      if (!mountedRef.current) break;
+
+      // 5. Pulser ON
+      onPulseChange(true);
+
+      // 6. Dwell time so the user can register the location
+      await new Promise((r) => setTimeout(r, 1000));
+    }
+
+    isAnimatingRef.current = false;
+  }, [map, onPulseChange]);
+
+  useEffect(() => {
+    processQueueRef.current = processQueue;
+  }, [processQueue]);
 
   return null;
 }
@@ -162,13 +196,11 @@ function AnimationController({ candidates, activeCandidateIndex, candidateStatus
 function SonarPulse({ active }: { active: boolean }) {
   return (
     <div
-      className={`relative flex items-center justify-center transition-all duration-500 ease-in-out ${
-        active ? 'scale-100 opacity-100' : 'scale-0 opacity-0'
+      className={`relative flex items-center justify-center transition-all duration-300 ease-in-out ${
+        active ? 'scale-100 opacity-100' : 'scale-50 opacity-0'
       }`}
     >
-      {/* Centre dot */}
       <div className="absolute z-10 h-3 w-3 rounded-full bg-indigo-500/80 dark:bg-indigo-400/80" />
-      {/* Three rings staggered 0.8 s apart */}
       {[0, 1, 2].map((i) => (
         <div
           key={i}
@@ -194,38 +226,33 @@ interface LoadingMapProps {
   onMapReady?: (map: L.Map) => void;
   candidates?: CandidateArea[];
   activeCandidateIndex?: number | null;
-  candidateStatus?: Map<string, CandidateStatus>;
+  candidateStatus?: Map<string, CandidateStatus>; // Kept for prop signature compatibility, but unused here
 }
 
-export function LoadingMap({ 
-  centre, 
-  onMapReady, 
+export function LoadingMap({
+  centre,
+  onMapReady,
   candidates = [],
   activeCandidateIndex = null,
-  candidateStatus = new Map(),
 }: LoadingMapProps) {
   const { resolvedTheme } = useTheme();
   const tile = resolvedTheme === 'dark' ? TILE_LAYERS.dark : TILE_LAYERS.light;
 
   const [tilesLoading, setTilesLoading] = useState(true);
-  const [phase, setPhase] = useState<AnimPhase>('waiting');
-  // Once the user interacts we permanently unmount the controller for this session
   const [paused, setPaused] = useState(false);
-  // Tracks whether the initial tile load has ever completed.
-  // After that first load, tile activity from flyTo() should not show the full-screen
-  // overlay or suppress the sonar pulse — those events are normal and expected.
-  const hasInitiallyLoadedRef = useRef(false);
+  const [pulserActive, setPulserActive] = useState(true); // Default to ON at the center
 
-  // Use ref to capture initial center only on first render - prevents MapContainer
-  // from resetting to this position on subsequent re-renders
+  const hasInitiallyLoadedRef = useRef(false);
   const initialCenterRef = useRef<[number, number] | null>(null);
+
   if (initialCenterRef.current === null) {
     initialCenterRef.current = [centre.lat, centre.lng];
   }
   const initialCenter = initialCenterRef.current;
 
-  const handlePhaseChange = useCallback((p: AnimPhase) => { setPhase(p); }, []);
-  const handleMapReady    = useCallback((map: L.Map)   => { onMapReady?.(map); }, [onMapReady]);
+  const handleMapReady = useCallback((map: L.Map) => {
+    onMapReady?.(map);
+  }, [onMapReady]);
 
   const handleTilesLoadingChange = useCallback((loading: boolean) => {
     if (!loading) hasInitiallyLoadedRef.current = true;
@@ -234,24 +261,18 @@ export function LoadingMap({
 
   const handleUserInteract = useCallback(() => {
     setPaused(true);
-    setPhase('paused');
+    setPulserActive(false);
   }, []);
 
-  // Show pulse when in an active animation phase or when a candidate is being checked.
-  // Before the initial load we also require tiles to be ready; after that, subsequent
-  // tile activity (from flyTo) should never suppress the pulse.
-  const hasActiveCandidate = activeCandidateIndex !== null && 
-    candidates[activeCandidateIndex] && 
-    candidateStatus.get(candidates[activeCandidateIndex].id) === 'checking';
-  
-  const pulserActive = (hasInitiallyLoadedRef.current || !tilesLoading) &&
-    (phase === 'waiting' || phase === 'pulsing' || hasActiveCandidate);
+  const handlePulseChange = useCallback((active: boolean) => {
+    setPulserActive(active);
+  }, []);
 
   return (
     <div className="relative w-full h-[calc(100vh-180px)] min-h-[400px]">
       <MapContainer
         center={initialCenter}
-        zoom={ZOOM_WAITING}
+        zoom={ZOOM_OUT}
         className="h-full w-full"
         zoomControl={true}
       >
@@ -263,13 +284,12 @@ export function LoadingMap({
         />
         {onMapReady && <MapController onMapReady={handleMapReady} initialCenter={initialCenter} />}
         <UserInteractionWatcher onInteract={handleUserInteract} />
-        {/* Unmounting the controller on pause kills all timers and listeners cleanly */}
+        
         {!paused && (
-          <AnimationController
+          <SequenceAnimator
             candidates={candidates}
             activeCandidateIndex={activeCandidateIndex}
-            candidateStatus={candidateStatus}
-            onPhaseChange={handlePhaseChange}
+            onPulseChange={handlePulseChange}
           />
         )}
       </MapContainer>
