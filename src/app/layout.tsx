@@ -1,5 +1,4 @@
 import type { Metadata } from "next";
-import Script from "next/script";
 import { Providers } from "@/app/providers";
 import "@/styles/globals.css";
 
@@ -21,11 +20,10 @@ export default function RootLayout({
     <html lang="en" suppressHydrationWarning>
       <head>
         {ADSENSE_PUB_ID && (
-          <Script
+          <script
             async
             src={`https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=${ADSENSE_PUB_ID}`}
             crossOrigin="anonymous"
-            strategy="afterInteractive"
           />
         )}
       </head>
