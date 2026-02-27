@@ -29,20 +29,27 @@ const TILE_LAYERS = {
 };
 
 const ZOOM_OUT = 11;
-const ZOOM_IN = 14;
+const ZOOM_IN  = 14;
 
 // ─── MapController ──────────────────────────────────────────────────────────
-function MapController({ onMapReady, initialCenter }: { onMapReady: (map: L.Map) => void; initialCenter: [number, number] }) {
+function MapController({
+  onMapReady,
+  initialCenter,
+}: {
+  onMapReady: (map: L.Map) => void;
+  initialCenter: [number, number];
+}) {
   const map = useMap();
-  const hasCenteredRef = useRef(false);
+  const ready = useRef(false);
 
   useEffect(() => {
-    if (!hasCenteredRef.current) {
+    if (!ready.current) {
       map.setView(initialCenter, ZOOM_OUT);
-      hasCenteredRef.current = true;
+      ready.current = true;
     }
     onMapReady(map);
   }, [map, onMapReady, initialCenter]);
+
   return null;
 }
 
@@ -56,29 +63,10 @@ function TileLoadingIndicator({ onLoadingChange }: { onLoadingChange: (v: boolea
 }
 
 // ─── UserInteractionWatcher ─────────────────────────────────────────────────
+// Only watches for drag — programmatic setView does NOT fire dragstart, so
+// this cleanly distinguishes user intent from our own animation calls.
 function UserInteractionWatcher({ onInteract }: { onInteract: () => void }) {
-  useMapEvents({
-    dragstart: onInteract,
-  });
-  
-  const map = useMap();
-  
-  useEffect(() => {
-    const handleUserAction = () => onInteract();
-    const container = map.getContainer();
-    
-    // Only detect true user interactions to avoid catching programmatic pans/zooms
-    container.addEventListener('wheel', handleUserAction, { passive: true });
-    container.addEventListener('touchstart', handleUserAction, { passive: true });
-    container.addEventListener('mousedown', handleUserAction, { passive: true });
-    
-    return () => {
-      container.removeEventListener('wheel', handleUserAction);
-      container.removeEventListener('touchstart', handleUserAction);
-      container.removeEventListener('mousedown', handleUserAction);
-    };
-  }, [map, onInteract]);
-  
+  useMapEvents({ dragstart: onInteract });
   return null;
 }
 
@@ -93,101 +81,86 @@ function SequenceAnimator({
   onPulseChange: (active: boolean) => void;
 }) {
   const map = useMap();
-  const targetRef = useRef<CandidateArea | null>(null);
-  const isAnimatingRef = useRef(false);
-  const mountedRef = useRef(true);
-  const processQueueRef = useRef<(() => Promise<void>) | null>(null);
-
-  // When a new candidate starts checking, set it as the next target in the queue.
-  // We overwrite the target so the map can "skip ahead" if data fetching outpaces the animation.
-  useEffect(() => {
-    if (activeCandidateIndex !== null && candidates[activeCandidateIndex]) {
-      targetRef.current = candidates[activeCandidateIndex];
-      if (processQueueRef.current) {
-        processQueueRef.current();
-      }
-    }
-  }, [activeCandidateIndex, candidates]);
+  const targetRef        = useRef<CandidateArea | null>(null);
+  const isAnimatingRef   = useRef(false);
+  const mountedRef       = useRef(true);
 
   useEffect(() => {
     mountedRef.current = true;
-    return () => {
-      mountedRef.current = false;
-    };
+    return () => { mountedRef.current = false; };
   }, []);
+
+  // Await a single map.setView() call — setView always fires moveend, regardless
+  // of distance or zoom delta, making it the only reliable way to sequence steps.
+  const step = useCallback(
+    (action: () => void, maxWaitMs = 2500) =>
+      new Promise<void>((resolve) => {
+        let done = false;
+        const finish = () => {
+          if (done) return;
+          done = true;
+          resolve();
+        };
+        map.once('moveend', finish);
+        action();
+        setTimeout(() => {
+          map.off('moveend', finish);
+          finish();
+        }, maxWaitMs);
+      }),
+    [map],
+  );
 
   const processQueue = useCallback(async () => {
     if (isAnimatingRef.current) return;
     isAnimatingRef.current = true;
 
-    // A helper to robustly wait for a Leaflet event (or timeout)
-    const waitForEvent = (event: string, action: () => void, maxWaitMs = 1500) => {
-      return new Promise<void>((resolve) => {
-        let fired = false;
-        const handler = () => {
-          fired = true;
-          map.off(event, handler);
-          resolve();
-        };
-        map.on(event, handler);
-        action();
-        
-        setTimeout(() => {
-          if (!fired) {
-            map.off(event, handler);
-            resolve();
-          }
-        }, maxWaitMs);
-      });
-    };
-
     while (targetRef.current && mountedRef.current) {
       const target = targetRef.current;
-      targetRef.current = null; // Consume the target
+      targetRef.current = null; // consume
 
-      // 1. Pulser OFF
+      // 1. Stop the pulser
       onPulseChange(false);
-      await new Promise((r) => setTimeout(r, 200)); // Brief pause to let pulser fade
+      await new Promise((r) => setTimeout(r, 150));
       if (!mountedRef.current) break;
 
-      // 2. Zoom out
-      if (map.getZoom() > ZOOM_OUT) {
-        await waitForEvent('zoomend', () => {
-          map.setZoom(ZOOM_OUT, { animate: true, duration: 0.5 });
-        });
+      // 2. Zoom out (stay on current centre)
+      if (map.getZoom() !== ZOOM_OUT) {
+        await step(() => map.setView(map.getCenter(), ZOOM_OUT, { animate: true }));
+        if (!mountedRef.current) break;
       }
-      if (!mountedRef.current) break;
 
-      // 3. Pan to location
-      const currentCenter = map.getCenter();
-      if (Math.abs(currentCenter.lat - target.lat) > 0.0001 || Math.abs(currentCenter.lng - target.lng) > 0.0001) {
-        await waitForEvent('moveend', () => {
-          map.panTo([target.lat, target.lng], { animate: true, duration: 1.0 });
-        }, 2000);
+      // 3. Pan to target at the zoomed-out level
+      //    setView handles any distance — panTo silently fails for far points.
+      const c = map.getCenter();
+      if (Math.abs(c.lat - target.lat) > 0.001 || Math.abs(c.lng - target.lng) > 0.001) {
+        await step(() => map.setView([target.lat, target.lng], ZOOM_OUT, { animate: true }), 3000);
+        if (!mountedRef.current) break;
       }
-      if (!mountedRef.current) break;
 
-      // 4. Zoom in
-      if (map.getZoom() < ZOOM_IN) {
-        await waitForEvent('zoomend', () => {
-          map.setZoom(ZOOM_IN, { animate: true, duration: 0.5 });
-        });
-      }
+      // 4. Zoom in on the target
+      await step(() => map.setView([target.lat, target.lng], ZOOM_IN, { animate: true }));
       if (!mountedRef.current) break;
 
       // 5. Pulser ON
       onPulseChange(true);
 
-      // 6. Dwell time so the user can register the location
-      await new Promise((r) => setTimeout(r, 1000));
+      // 6. Dwell so the user registers where we are
+      await new Promise((r) => setTimeout(r, 1200));
     }
 
     isAnimatingRef.current = false;
-  }, [map, onPulseChange]);
+  }, [map, onPulseChange, step]);
 
+  // Each time a new batch starts, overwrite the pending target and kick the loop.
+  // If the loop is already running it will pick up the latest target on its next
+  // iteration — this is the "skip ahead" / catch-up mechanism.
   useEffect(() => {
-    processQueueRef.current = processQueue;
-  }, [processQueue]);
+    if (activeCandidateIndex !== null && candidates[activeCandidateIndex]) {
+      targetRef.current = candidates[activeCandidateIndex];
+      processQueue();
+    }
+  }, [activeCandidateIndex, candidates, processQueue]);
 
   return null;
 }
@@ -226,7 +199,7 @@ interface LoadingMapProps {
   onMapReady?: (map: L.Map) => void;
   candidates?: CandidateArea[];
   activeCandidateIndex?: number | null;
-  candidateStatus?: Map<string, CandidateStatus>; // Kept for prop signature compatibility, but unused here
+  candidateStatus?: Map<string, CandidateStatus>; // kept for prop compat
 }
 
 export function LoadingMap({
@@ -238,21 +211,18 @@ export function LoadingMap({
   const { resolvedTheme } = useTheme();
   const tile = resolvedTheme === 'dark' ? TILE_LAYERS.dark : TILE_LAYERS.light;
 
-  const [tilesLoading, setTilesLoading] = useState(true);
-  const [paused, setPaused] = useState(false);
-  const [pulserActive, setPulserActive] = useState(true); // Default to ON at the center
+  const [tilesLoading, setTilesLoading]   = useState(true);
+  const [paused, setPaused]               = useState(false);
+  const [pulserActive, setPulserActive]   = useState(true);
 
   const hasInitiallyLoadedRef = useRef(false);
-  const initialCenterRef = useRef<[number, number] | null>(null);
-
+  const initialCenterRef      = useRef<[number, number] | null>(null);
   if (initialCenterRef.current === null) {
     initialCenterRef.current = [centre.lat, centre.lng];
   }
   const initialCenter = initialCenterRef.current;
 
-  const handleMapReady = useCallback((map: L.Map) => {
-    onMapReady?.(map);
-  }, [onMapReady]);
+  const handleMapReady = useCallback((map: L.Map) => { onMapReady?.(map); }, [onMapReady]);
 
   const handleTilesLoadingChange = useCallback((loading: boolean) => {
     if (!loading) hasInitiallyLoadedRef.current = true;
@@ -277,14 +247,12 @@ export function LoadingMap({
         zoomControl={true}
       >
         <TileLoadingIndicator onLoadingChange={handleTilesLoadingChange} />
-        <TileLayer
-          key={tile.url}
-          attribution={tile.attribution}
-          url={tile.url}
-        />
-        {onMapReady && <MapController onMapReady={handleMapReady} initialCenter={initialCenter} />}
+        <TileLayer key={tile.url} attribution={tile.attribution} url={tile.url} />
+        {onMapReady && (
+          <MapController onMapReady={handleMapReady} initialCenter={initialCenter} />
+        )}
         <UserInteractionWatcher onInteract={handleUserInteract} />
-        
+
         {!paused && (
           <SequenceAnimator
             candidates={candidates}
@@ -294,7 +262,7 @@ export function LoadingMap({
         )}
       </MapContainer>
 
-      {/* Sonar pulse overlay — pointer-events-none so map is still interactive */}
+      {/* Sonar pulse — pointer-events-none so the map stays interactive */}
       <div
         className="absolute inset-0 flex items-center justify-center pointer-events-none overflow-hidden"
         style={{ zIndex: 1000 }}
@@ -306,7 +274,7 @@ export function LoadingMap({
         <div className="absolute inset-0 z-10 flex items-center justify-center bg-background/80 backdrop-blur-sm pointer-events-none">
           <div className="flex flex-col items-center gap-2">
             <div className="h-6 w-6 animate-spin rounded-full border-2 border-primary border-t-transparent" />
-            <span className="text-sm text-muted-foreground">Loading map...</span>
+            <span className="text-sm text-muted-foreground">Loading map…</span>
           </div>
         </div>
       )}
