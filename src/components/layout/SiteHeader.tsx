@@ -9,6 +9,14 @@ export function SiteHeader() {
         <Link href="/" className="text-2xl font-bold text-primary">
           CitySieve
         </Link>
+        <nav className="hidden items-center gap-6 text-sm font-medium sm:flex">
+          <Link href="/about" className="text-muted-foreground transition-colors hover:text-foreground">
+            About
+          </Link>
+          <Link href="/faq" className="text-muted-foreground transition-colors hover:text-foreground">
+            FAQ
+          </Link>
+        </nav>
         <div className="flex items-center gap-2">
           <ThemeToggle />
           <AuthButton />

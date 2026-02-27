@@ -5,9 +5,15 @@ All components are in `src/components/`.
 ## Layout
 
 ### `SiteHeader` (`layout/SiteHeader.tsx`)
-- Used on: landing page, survey layout, results page, my-surveys page
-- Contains: logo link (`/`) + `ThemeToggle` + `AuthButton`
+- Used on: landing page, survey layout, results page, my-surveys page, and all static pages (About, Contact, Privacy, FAQ)
+- Contains: logo link (`/`) + nav links (About, FAQ — hidden on mobile) + `ThemeToggle` + `AuthButton`
 - The survey layout adds it automatically — don't duplicate it in survey step pages or the review page
+
+### `SiteFooter` (`layout/SiteFooter.tsx`)
+- Global footer rendered in the root layout — appears on every page
+- Contains: `DonateButton` (conditionally), nav links (About, FAQ, Contact, Privacy Policy), copyright line with OSM attribution
+- Server component, no client-side dependencies
+- Replaces the old inline footer that previously existed only on the landing page
 
 ### `ThemeToggle` (`ThemeToggle.tsx`)
 - Client component. Three-option dropdown: Light / Dark / System (default)

@@ -5,9 +5,18 @@
 ```
 src/
 ├── app/
-│   ├── layout.tsx              # Root layout (delegates all providers to providers.tsx)
+│   ├── layout.tsx              # Root layout — providers, global SiteFooter, OG metadata, AdSense script
 │   ├── providers.tsx           # Client component: ThemeProvider + SessionProvider + SurveyProvider
 │   ├── page.tsx                # Landing page
+│   ├── robots.ts               # /robots.txt generation (disallows /api/, /account, /my-surveys, /results)
+│   ├── sitemap.ts              # /sitemap.xml generation (all public routes)
+│   ├── icon.png                # App icon / favicon (auto-wired by Next.js)
+│   ├── about/page.tsx          # About page — project story, how it works, OSM attribution
+│   ├── contact/
+│   │   ├── page.tsx            # Contact page (server component + metadata)
+│   │   └── ContactForm.tsx     # Formspree contact form (client component)
+│   ├── privacy/page.tsx        # Privacy Policy (UK GDPR)
+│   ├── faq/page.tsx            # FAQ — scoring, data, coverage, account questions
 │   ├── quick-survey/
 │   │   ├── layout.tsx          # Minimal layout (SiteHeader only, no progress bar)
 │   │   └── page.tsx            # Single-page quick survey (~4 questions → /results)
@@ -55,6 +64,7 @@ Root layout (`src/app/layout.tsx`) wraps the entire app via `src/app/providers.t
           {children}
         </SurveyProvider>
       </SessionProvider>
+      <SiteFooter />                   ← Global footer — after children, inside ThemeProvider
     </ThemeProvider>
   </body>
 </html>

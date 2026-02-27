@@ -1,7 +1,6 @@
 import Link from "next/link";
 import { SiteHeader } from "@/components/layout/SiteHeader";
 import { AdSlot } from "@/components/ads/AdSlot";
-import { DonateButton } from "@/components/donate/DonateButton";
 
 export default function HomePage() {
   return (
@@ -81,15 +80,6 @@ export default function HomePage() {
           </div>
         </section>
       </main>
-
-      <footer className="border-t py-6">
-        <div className="mx-auto flex max-w-5xl flex-col items-center gap-4 px-4">
-          <DonateButton />
-          <p className="text-sm text-muted-foreground">
-            CitySieve - powered by OpenStreetMap data
-          </p>
-        </div>
-      </footer>
     </div>
   );
 }
