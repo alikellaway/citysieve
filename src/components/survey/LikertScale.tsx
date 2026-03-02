@@ -34,9 +34,9 @@ export function LikertScale({
               type="button"
               onClick={() => onChange(opt)}
               className={cn(
-                "flex h-10 w-10 items-center justify-center rounded-lg border text-sm font-medium transition-colors sm:h-11 sm:w-11",
+                "flex h-10 w-10 items-center justify-center rounded-lg border text-sm font-medium transition-all duration-200 active:scale-95 hover:scale-105 hover:shadow-sm sm:h-11 sm:w-11",
                 value === opt
-                  ? "border-primary bg-primary text-primary-foreground"
+                  ? "border-primary bg-primary text-primary-foreground shadow-md scale-105"
                   : "border-input bg-background hover:bg-accent hover:text-accent-foreground"
               )}
             >

@@ -4,9 +4,9 @@ import { SiteHeader } from '@/components/layout/SiteHeader';
 import { BackButton } from '@/components/ui/BackButton';
 
 export const metadata: Metadata = {
-  title: 'FAQ — CitySieve',
+  title: 'FAQ  -  CitySieve',
   description:
-    'Frequently asked questions about CitySieve — how scoring works, what data we use, coverage, accuracy, and privacy.',
+    'Frequently asked questions about CitySieve  -  how scoring works, what data we use, coverage, accuracy, and privacy.',
 };
 
 const faqs: { q: string; a: React.ReactNode }[] = [
@@ -30,24 +30,24 @@ const faqs: { q: string; a: React.ReactNode }[] = [
         dimensions based on your survey answers:
         <ul className="mt-2 list-disc space-y-1 pl-5">
           <li>
-            <strong>Amenities</strong> — counts of pubs, restaurants, parks, gyms, supermarkets,
+            <strong>Amenities</strong>  -  counts of pubs, restaurants, parks, gyms, supermarkets,
             cafés, and other points of interest within the area, weighted by how much you said
             they matter to you.
           </li>
           <li>
-            <strong>Transport</strong> — proximity to train stations, tube stops, bus routes, and
+            <strong>Transport</strong>  -  proximity to train stations, tube stops, bus routes, and
             cycle paths.
           </li>
           <li>
-            <strong>Commute</strong> — straight-line distance to your workplace or other key
+            <strong>Commute</strong>  -  straight-line distance to your workplace or other key
             location (closer is better if commute matters to you).
           </li>
           <li>
-            <strong>Environment</strong> — green space, quietness indicators, and air quality
+            <strong>Environment</strong>  -  green space, quietness indicators, and air quality
             proxies from OSM data.
           </li>
           <li>
-            <strong>Family</strong> — proximity to schools, playgrounds, and family-friendly
+            <strong>Family</strong>  -  proximity to schools, playgrounds, and family-friendly
             amenities.
           </li>
         </ul>
@@ -99,7 +99,7 @@ const faqs: { q: string; a: React.ReactNode }[] = [
       <>
         Yes. Unsaved survey responses live only in your browser&apos;s local storage and are
         never sent to our servers. If you save a survey to your account, it is stored in our
-        database and linked to your account — only you can see it. See our{' '}
+        database and linked to your account  -  only you can see it. See our{' '}
         <Link href="/privacy" className="underline underline-offset-2 hover:text-foreground">
           Privacy Policy
         </Link>{' '}
@@ -125,7 +125,7 @@ const faqs: { q: string; a: React.ReactNode }[] = [
     a: (
       <>
         OpenStreetMap is a free, open dataset maintained by a global community of contributors.
-        Unlike proprietary mapping services, OSM data can be queried freely and in bulk —
+        Unlike proprietary mapping services, OSM data can be queried freely and in bulk  - 
         which is essential for CitySieve&apos;s approach of scoring many candidate areas in one
         go. OSM is also frequently more detailed than commercial alternatives when it comes to
         local amenity data like pubs, parks, and independent shops.
@@ -147,7 +147,7 @@ const faqs: { q: string; a: React.ReactNode }[] = [
     q: 'Can I save and compare different surveys?',
     a: (
       <>
-        Yes — sign in with Google, run a survey, and click &ldquo;Save survey&rdquo; on the
+        Yes  -  sign in with Google, run a survey, and click &ldquo;Save survey&rdquo; on the
         results page. You can create multiple surveys (e.g. one prioritising commute, one
         prioritising nightlife) and switch between them from the{' '}
         <Link href="/my-surveys" className="underline underline-offset-2 hover:text-foreground">
@@ -164,7 +164,7 @@ const faqs: { q: string; a: React.ReactNode }[] = [
         A few possible reasons:
         <ul className="mt-2 list-disc space-y-1 pl-5">
           <li>
-            The commute location you entered may not have been resolved to coordinates — try
+            The commute location you entered may not have been resolved to coordinates  -  try
             using a more specific address or postcode.
           </li>
           <li>
@@ -179,7 +179,7 @@ const faqs: { q: string; a: React.ReactNode }[] = [
         <Link href="/contact" className="underline underline-offset-2 hover:text-foreground">
           let us know
         </Link>{' '}
-        — we may be able to help or fix a bug.
+         -  we may be able to help or fix a bug.
       </>
     ),
   },

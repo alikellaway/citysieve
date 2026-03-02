@@ -4,7 +4,7 @@ import { SiteHeader } from '@/components/layout/SiteHeader';
 import { BackButton } from '@/components/ui/BackButton';
 
 export const metadata: Metadata = {
-  title: 'Privacy Policy — CitySieve',
+  title: 'Privacy Policy  -  CitySieve',
   description: 'How CitySieve collects, uses, and protects your personal data.',
 };
 
@@ -44,7 +44,7 @@ export default function PrivacyPage() {
                   If you choose to sign in with Google, we receive and store your email address,
                   display name, and profile image URL from your Google account. This is used
                   solely to identify your account and link your saved surveys to it. You are
-                  never required to sign in — the tool works fully without an account.
+                  never required to sign in  -  the tool works fully without an account.
                 </p>
               </div>
               <div>
@@ -84,15 +84,15 @@ export default function PrivacyPage() {
             </p>
             <ul className="mt-3 list-disc space-y-2 pl-5 text-muted-foreground">
               <li>
-                <span className="font-medium text-foreground">Contractual necessity</span> — to
+                <span className="font-medium text-foreground">Contractual necessity</span>  -  to
                 provide the account and survey-saving features you have requested.
               </li>
               <li>
-                <span className="font-medium text-foreground">Legitimate interests</span> — to
+                <span className="font-medium text-foreground">Legitimate interests</span>  -  to
                 operate, maintain, and improve the service.
               </li>
               <li>
-                <span className="font-medium text-foreground">Consent</span> — for advertising
+                <span className="font-medium text-foreground">Consent</span>  -  for advertising
                 cookies set by Google AdSense (see Section 5 below).
               </li>
             </ul>
@@ -150,8 +150,11 @@ export default function PrivacyPage() {
                 <p className="font-medium text-foreground">Advertising cookies (Google AdSense)</p>
                 <p>
                   CitySieve displays advertisements served by Google AdSense. Google may use
-                  cookies to show you personalised ads based on your browsing history. You can
-                  opt out of personalised advertising via{' '}
+                  cookies to show you personalised ads based on your browsing history. When you
+                  first visit CitySieve, a cookie consent banner will ask whether you accept
+                  advertising cookies. The AdSense script is only loaded if you choose to accept.
+                  You can change your choice at any time by clearing your browser&apos;s local
+                  storage for this site. You can also opt out of personalised advertising via{' '}
                   <a
                     href="https://adssettings.google.com/"
                     target="_blank"
@@ -188,7 +191,7 @@ export default function PrivacyPage() {
             <ul className="list-disc space-y-2 pl-5 text-muted-foreground">
               <li>
                 <span className="font-medium text-foreground">Account data and saved surveys</span>{' '}
-                — retained until you delete your account via{' '}
+                 -  retained until you delete your account via{' '}
                 <Link
                   href="/account"
                   className="underline underline-offset-2 hover:text-foreground"
@@ -198,11 +201,11 @@ export default function PrivacyPage() {
                 .
               </li>
               <li>
-                <span className="font-medium text-foreground">Session records</span> — expire
+                <span className="font-medium text-foreground">Session records</span>  -  expire
                 automatically (typically 30 days of inactivity).
               </li>
               <li>
-                <span className="font-medium text-foreground">Browser local storage</span> — held
+                <span className="font-medium text-foreground">Browser local storage</span>  -  held
                 in your browser indefinitely unless you clear it or delete your account.
               </li>
             </ul>

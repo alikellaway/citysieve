@@ -3,6 +3,7 @@
 import { usePathname } from "next/navigation";
 import { ProgressBar } from "@/components/survey/ProgressBar";
 import { SiteHeader } from "@/components/layout/SiteHeader";
+import { TermsGate } from "@/components/consent/TermsGate";
 import { SURVEY_STEPS } from "@/lib/survey/steps";
 
 export default function SurveyLayout({
@@ -16,12 +17,14 @@ export default function SurveyLayout({
     SURVEY_STEPS.find((s) => s.path === pathname)?.number ?? 0;
 
   return (
-    <div>
-      <SiteHeader />
-      <div className="mx-auto max-w-2xl px-4 py-6">
-        {currentStep > 0 && <ProgressBar currentStep={currentStep} />}
-        <main className="mt-6">{children}</main>
+    <TermsGate>
+      <div>
+        <SiteHeader />
+        <div className="mx-auto max-w-2xl px-4 py-6">
+          {currentStep > 0 && <ProgressBar currentStep={currentStep} />}
+          <main className="mt-6">{children}</main>
+        </div>
       </div>
-    </div>
+    </TermsGate>
   );
 }

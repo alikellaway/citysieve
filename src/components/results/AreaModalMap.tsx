@@ -45,7 +45,7 @@ function createPoiIcon(category: AmenityCategory): L.DivIcon {
         ${config.icon}
       </div>
     `,
-    className: 'poi-marker',
+    className: 'poi-marker animate-map-pin',
     iconSize: [28, 28],
     iconAnchor: [14, 14],
     popupAnchor: [0, -14],

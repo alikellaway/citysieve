@@ -48,7 +48,7 @@ export function AdSlot({ variant = 'inline', className }: AdSlotProps) {
   const resolvedVariant = variant ?? 'inline';
   const slotId = SLOTS[resolvedVariant];
 
-  // Real AdSense path — only when both pub-ID and slot ID are configured.
+  // Real AdSense path  -  only when both pub-ID and slot ID are configured.
   if (PUB_ID && slotId) {
     return (
       <div className={cn('my-6', className)} aria-label="advertisement">
@@ -65,7 +65,7 @@ export function AdSlot({ variant = 'inline', className }: AdSlotProps) {
     );
   }
 
-  // Placeholder fallback — shown in dev or when env vars are not configured.
+  // Placeholder fallback  -  shown in dev or when env vars are not configured.
   const labels = sizeLabels[resolvedVariant];
   return (
     <div className={cn('my-6', className)}>

@@ -53,7 +53,7 @@ export function LoadingOverlay({
           </span>
         </div>
         {phrase && !isSkipping && (
-          <p className="text-xs text-muted-foreground italic">
+          <p className="text-xs text-muted-foreground italic animate-text-shimmer">
             {phrase}
           </p>
         )}

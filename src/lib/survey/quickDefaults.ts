@@ -24,7 +24,7 @@ export type QuickPriorityKey =
   | 'peaceAndQuiet'
   | 'socialImportance';
 
-/** Display labels for each priority chip — kept in sync with HIGHLIGHT_LABELS. */
+/** Display labels for each priority chip  -  kept in sync with HIGHLIGHT_LABELS. */
 export const QUICK_PRIORITY_LABELS: Record<QuickPriorityKey, string> = {
   supermarkets: 'Supermarkets',
   highStreet: 'High street',

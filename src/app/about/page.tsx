@@ -4,7 +4,7 @@ import { SiteHeader } from '@/components/layout/SiteHeader';
 import { BackButton } from '@/components/ui/BackButton';
 
 export const metadata: Metadata = {
-  title: 'About — CitySieve',
+  title: 'About  -  CitySieve',
   description:
     'CitySieve is a free neighbourhood-matching tool that scores areas against your priorities using live OpenStreetMap data.',
 };
@@ -23,7 +23,7 @@ export default function AboutPage() {
           <p>
             CitySieve is a free tool that helps you figure out where to live. Most property
             search tools focus on listings. CitySieve focuses on{' '}
-            <span className="font-medium text-foreground">you</span> — your commute, your
+            <span className="font-medium text-foreground">you</span>  -  your commute, your
             lifestyle, the amenities that matter to your daily life.
           </p>
           <p>
@@ -38,7 +38,7 @@ export default function AboutPage() {
             Moving is one of the biggest decisions you&apos;ll make, and it&apos;s surprisingly
             hard to do well. Estate agents show you houses, not how long it takes to get a coffee
             or whether the park is walkable. CitySieve was built by a solo developer who wanted a
-            more data-driven way to shortlist areas — and couldn&apos;t find one that worked well
+            more data-driven way to shortlist areas  -  and couldn&apos;t find one that worked well
             enough.
           </p>
         </section>
@@ -66,7 +66,7 @@ export default function AboutPage() {
                 <p className="font-semibold">We crunch the data</p>
                 <p className="text-muted-foreground">
                   CitySieve generates candidate areas around your key locations, then scores each
-                  one against live OpenStreetMap data — covering pubs, parks, supermarkets, gyms,
+                  one against live OpenStreetMap data  -  covering pubs, parks, supermarkets, gyms,
                   schools, transport links, and more.
                 </p>
               </div>
@@ -112,7 +112,7 @@ export default function AboutPage() {
             .
           </p>
           <p className="mt-3 text-lg leading-relaxed text-muted-foreground">
-            Scores are indicative — they reflect the amenities captured in OpenStreetMap, which is
+            Scores are indicative  -  they reflect the amenities captured in OpenStreetMap, which is
             very comprehensive in UK cities but may be incomplete in rural areas. Always verify
             what matters most to you before making any decisions.
           </p>
@@ -125,7 +125,7 @@ export default function AboutPage() {
             <Link href="/contact" className="underline underline-offset-2 hover:text-foreground">
               Get in touch
             </Link>{' '}
-            — whether it&apos;s a bug, a suggestion, or just to say the tool helped you find a
+             -  whether it&apos;s a bug, a suggestion, or just to say the tool helped you find a
             great place to live.
           </p>
         </section>

@@ -136,7 +136,7 @@ async function generateValidCandidates(
     return validCandidates;
   }
 
-  // Too many points lost to the sea — increase density proportionally.
+  // Too many points lost to the sea  -  increase density proportionally.
   const landRatio = rawCandidates.length > 0
     ? validCandidates.length / rawCandidates.length
     : 1;
@@ -685,7 +685,7 @@ export default function ResultsPage() {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         state,
-        label: `Survey — ${new Date().toLocaleDateString()}`,
+        label: `Survey  -  ${new Date().toLocaleDateString()}`,
       }),
     });
     setSaved(true);
@@ -849,7 +849,11 @@ export default function ResultsPage() {
                         const cardIndex = ringOffsets[ringIdx] + itemIdx;
                         return (
                           <React.Fragment key={result.area.id}>
-                            <div ref={(el) => { cardRefs.current[cardIndex] = el; }}>
+                            <div 
+                              ref={(el) => { cardRefs.current[cardIndex] = el; }}
+                              className="animate-in fade-in slide-in-from-bottom-4 duration-500 fill-mode-both"
+                              style={{ animationDelay: `${itemIdx * 100}ms` }}
+                            >
                               <ResultCard
                                 result={result}
                                 rank={cardIndex + 1}

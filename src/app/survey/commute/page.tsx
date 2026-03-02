@@ -81,7 +81,7 @@ export default function CommutePage() {
             </div>
           </div>
 
-          {/* Hard cap toggle — only relevant when actually commuting */}
+          {/* Hard cap toggle  -  only relevant when actually commuting */}
           {commute.daysPerWeek > 0 && (
             <div className="flex items-center justify-between gap-4 rounded-lg border border-border bg-muted/40 px-4 py-3">
               <div className="space-y-0.5">

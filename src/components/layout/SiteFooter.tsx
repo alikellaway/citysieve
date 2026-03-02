@@ -1,5 +1,6 @@
 import Link from 'next/link';
 import { DonateButton } from '@/components/donate/DonateButton';
+import { CitySieveLogo } from '@/components/CitySieveLogo';
 
 export function SiteFooter() {
   const year = new Date().getFullYear();
@@ -7,6 +8,10 @@ export function SiteFooter() {
   return (
     <footer className="border-t py-8">
       <div className="mx-auto flex max-w-5xl flex-col items-center gap-5 px-4 text-sm">
+        <Link href="/" aria-label="CitySieve  -  go to homepage" className="opacity-40 transition-opacity hover:opacity-70">
+          <CitySieveLogo variant="icon-only" iconSize={20} />
+        </Link>
+
         <DonateButton />
 
         <nav aria-label="Footer navigation" className="flex flex-wrap justify-center gap-x-6 gap-y-2 text-muted-foreground">
@@ -14,10 +19,11 @@ export function SiteFooter() {
           <Link href="/faq" className="transition-colors hover:text-foreground">FAQ</Link>
           <Link href="/contact" className="transition-colors hover:text-foreground">Contact</Link>
           <Link href="/privacy" className="transition-colors hover:text-foreground">Privacy Policy</Link>
+          <Link href="/terms" className="transition-colors hover:text-foreground">Terms</Link>
         </nav>
 
         <p className="text-center text-muted-foreground">
-          &copy; {year} CitySieve &mdash; powered by{' '}
+          &copy; {year} CitySieve  -  powered by{' '}
           <a
             href="https://www.openstreetmap.org/"
             target="_blank"

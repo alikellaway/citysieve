@@ -4,6 +4,8 @@ import { useEffect, useRef, useState, useCallback } from 'react';
 import { MapContainer, TileLayer, useMap, useMapEvents } from 'react-leaflet';
 import L from 'leaflet';
 import { useTheme } from 'next-themes';
+import { Play } from 'lucide-react';
+import { CitySieveLogo } from '@/components/CitySieveLogo';
 
 import 'leaflet/dist/leaflet.css';
 
@@ -63,7 +65,7 @@ function TileLoadingIndicator({ onLoadingChange }: { onLoadingChange: (v: boolea
 }
 
 // ─── UserInteractionWatcher ─────────────────────────────────────────────────
-// Only watches for drag — programmatic setView does NOT fire dragstart, so
+// Only watches for drag  -  programmatic setView does NOT fire dragstart, so
 // this cleanly distinguishes user intent from our own animation calls.
 function UserInteractionWatcher({ onInteract }: { onInteract: () => void }) {
   useMapEvents({ dragstart: onInteract });
@@ -90,7 +92,7 @@ function SequenceAnimator({
     return () => { mountedRef.current = false; };
   }, []);
 
-  // Await a single map.setView() call — setView always fires moveend, regardless
+  // Await a single map.setView() call  -  setView always fires moveend, regardless
   // of distance or zoom delta, making it the only reliable way to sequence steps.
   const step = useCallback(
     (action: () => void, maxWaitMs = 2500) =>
@@ -131,7 +133,7 @@ function SequenceAnimator({
       }
 
       // 3. Pan to target at the zoomed-out level
-      //    setView handles any distance — panTo silently fails for far points.
+      //    setView handles any distance  -  panTo silently fails for far points.
       const c = map.getCenter();
       if (Math.abs(c.lat - target.lat) > 0.001 || Math.abs(c.lng - target.lng) > 0.001) {
         await step(() => map.setView([target.lat, target.lng], ZOOM_OUT, { animate: true }), 3000);
@@ -154,7 +156,7 @@ function SequenceAnimator({
 
   // Each time a new batch starts, overwrite the pending target and kick the loop.
   // If the loop is already running it will pick up the latest target on its next
-  // iteration — this is the "skip ahead" / catch-up mechanism.
+  // iteration  -  this is the "skip ahead" / catch-up mechanism.
   useEffect(() => {
     if (activeCandidateIndex !== null && candidates[activeCandidateIndex]) {
       targetRef.current = candidates[activeCandidateIndex];
@@ -190,6 +192,37 @@ function SonarPulse({ active }: { active: boolean }) {
         />
       ))}
     </div>
+  );
+}
+
+// ─── ResumeTourButton ───────────────────────────────────────────────────────
+function ResumeTourButton({ onResume }: { onResume: () => void }) {
+  const [visible, setVisible] = useState(false);
+
+  // Defer to next tick so the CSS transition fires on mount
+  useEffect(() => {
+    const t = setTimeout(() => setVisible(true), 30);
+    return () => clearTimeout(t);
+  }, []);
+
+  return (
+    <button
+      onClick={onResume}
+      aria-label="Resume animation tour"
+      className={`
+        flex items-center gap-1.5
+        bg-white/80 dark:bg-slate-800/80 backdrop-blur-sm
+        border border-white/40 dark:border-slate-600/40
+        rounded-full px-3 py-2 sm:py-1.5
+        text-xs font-medium text-slate-700 dark:text-slate-200
+        shadow-md cursor-pointer
+        transition-all duration-300 ease-out
+        ${visible ? 'opacity-100 translate-x-0' : 'opacity-0 translate-x-2'}
+      `}
+    >
+      <Play size={13} />
+      Resume tour
+    </button>
   );
 }
 
@@ -234,6 +267,10 @@ export function LoadingMap({
     setPulserActive(false);
   }, []);
 
+  const handleResume = useCallback(() => {
+    setPaused(false);
+  }, []);
+
   const handlePulseChange = useCallback((active: boolean) => {
     setPulserActive(active);
   }, []);
@@ -262,7 +299,14 @@ export function LoadingMap({
         )}
       </MapContainer>
 
-      {/* Sonar pulse — pointer-events-none so the map stays interactive */}
+      {/* Resume tour button  -  appears when user has paused the animation by dragging */}
+      {paused && (
+        <div className="absolute top-4 right-4 pointer-events-auto" style={{ zIndex: 1001 }}>
+          <ResumeTourButton onResume={handleResume} />
+        </div>
+      )}
+
+      {/* Sonar pulse  -  pointer-events-none so the map stays interactive */}
       <div
         className="absolute inset-0 flex items-center justify-center pointer-events-none overflow-hidden"
         style={{ zIndex: 1000 }}
@@ -272,8 +316,8 @@ export function LoadingMap({
 
       {tilesLoading && !hasInitiallyLoadedRef.current && (
         <div className="absolute inset-0 z-10 flex items-center justify-center bg-background/80 backdrop-blur-sm pointer-events-none">
-          <div className="flex flex-col items-center gap-2">
-            <div className="h-6 w-6 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+          <div className="flex flex-col items-center gap-3">
+            <CitySieveLogo variant="icon-only" iconSize={40} animateDots />
             <span className="text-sm text-muted-foreground">Loading map…</span>
           </div>
         </div>

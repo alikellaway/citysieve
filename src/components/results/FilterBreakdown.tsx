@@ -29,7 +29,7 @@ export function FilterBreakdown({
       >
         <div className="flex items-center gap-2">
           <span className="font-medium">{title}</span>
-          <span className="text-muted-foreground">— {description}</span>
+          <span className="text-muted-foreground"> -  {description}</span>
         </div>
         <Badge variant="secondary">{areas.length}</Badge>
       </button>

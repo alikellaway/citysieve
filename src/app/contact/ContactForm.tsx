@@ -39,7 +39,7 @@ export function ContactForm() {
     return (
       <div className="rounded-xl border bg-card p-8 text-center">
         <p className="text-lg font-semibold">Message sent!</p>
-        <p className="mt-2 text-muted-foreground">Thanks for getting in touch — we&apos;ll get back to you soon.</p>
+        <p className="mt-2 text-muted-foreground">Thanks for getting in touch  -  we&apos;ll get back to you soon.</p>
         <button
           onClick={() => setStatus('idle')}
           className="mt-4 text-sm underline underline-offset-2 hover:text-foreground text-muted-foreground"

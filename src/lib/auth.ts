@@ -19,6 +19,10 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
     session({ session, user }) {
       if (session.user) {
         session.user.id = user.id;
+        // Expose termsVersion so the client TermsGate can check acceptance
+        // without an extra API round-trip.
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        session.user.termsVersion = (user as any).termsVersion ?? null;
       }
       return session;
     },

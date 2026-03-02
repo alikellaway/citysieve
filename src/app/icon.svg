@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32">
+  <!-- Rounded-square background in brand blue -->
+  <rect width="32" height="32" rx="8" fill="#3b82f6"/>
+  <!-- 2×2 dot grid: white dots with opacity gradient top-left → bottom-right -->
+  <!-- top-left: full -->
+  <circle cx="10" cy="10" r="3.5" fill="white" fill-opacity="1"/>
+  <!-- top-right: full -->
+  <circle cx="22" cy="10" r="3.5" fill="white" fill-opacity="1"/>
+  <!-- bottom-left: half -->
+  <circle cx="10" cy="22" r="3.5" fill="white" fill-opacity="0.5"/>
+  <!-- bottom-right: ghost -->
+  <circle cx="22" cy="22" r="3.5" fill="white" fill-opacity="0.15"/>
+</svg>

@@ -174,7 +174,7 @@ export default function QuickSurveyPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Q1 — Location
+  // Q1  -  Location
   const [workLocation, setWorkLocation] = useState<GeoLocation | null>(
     isReturningQuickSurvey ? state.commute.workLocation : null
   );
@@ -185,7 +185,7 @@ export default function QuickSurveyPage() {
     isReturningQuickSurvey ? (state.commute.remoteRegion ?? 'anywhere') : 'anywhere'
   );
 
-  // Q2 — Commute
+  // Q2  -  Commute
   const [commuteModes, setCommuteModes] = useState<CommuteMode[]>(
     isReturningQuickSurvey ? state.commute.commuteModes : []
   );
@@ -193,12 +193,12 @@ export default function QuickSurveyPage() {
     isReturningQuickSurvey ? state.commute.maxCommuteTime : 45
   );
 
-  // Q3 — Area type
+  // Q3  -  Area type
   const [areaTypes, setAreaTypes] = useState<AreaType[]>(
     isReturningQuickSurvey ? state.environment.areaTypes : []
   );
 
-  // Q4 — Priorities
+  // Q4  -  Priorities
   const [topPriorities, setTopPriorities] = useState<QuickPriorityKey[]>(() => {
     if (!isReturningQuickSurvey) return [];
     // Convert likert 5 values back to priorities
@@ -270,7 +270,7 @@ export default function QuickSurveyPage() {
         </p>
       </div>
 
-      {/* Q1 — Location */}
+      {/* Q1  -  Location */}
       <Card>
         <CardHeader>
           <CardTitle className="text-base">
@@ -334,7 +334,7 @@ export default function QuickSurveyPage() {
         </CardContent>
       </Card>
 
-      {/* Q2 — Commute (hidden when fully remote) */}
+      {/* Q2  -  Commute (hidden when fully remote) */}
       {showCommuteDetails && (
         <Card>
           <CardHeader>
@@ -384,7 +384,7 @@ export default function QuickSurveyPage() {
         </Card>
       )}
 
-      {/* Q3 — Area type */}
+      {/* Q3  -  Area type */}
       <Card>
         <CardHeader>
           <CardTitle className="text-base">
@@ -433,7 +433,7 @@ export default function QuickSurveyPage() {
         </CardContent>
       </Card>
 
-      {/* Q4 — Priorities */}
+      {/* Q4  -  Priorities */}
       <Card>
         <CardHeader>
           <CardTitle className="text-base">
@@ -482,7 +482,7 @@ export default function QuickSurveyPage() {
           Find where to live
         </Button>
         <p className="text-xs text-muted-foreground">
-          All questions are optional — we&apos;ll use sensible defaults for anything left blank.
+          All questions are optional  -  we&apos;ll use sensible defaults for anything left blank.
         </p>
       </div>
     </div>

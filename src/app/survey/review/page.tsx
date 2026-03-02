@@ -18,7 +18,7 @@ const LIKERT_LABELS: Record<number, string> = {
 };
 
 function likert(val: number) {
-  return `${val}/5 — ${LIKERT_LABELS[val] ?? ''}`;
+  return `${val}/5  -  ${LIKERT_LABELS[val] ?? ''}`;
 }
 
 function formatBudget(budget: number | null, tenure: string | null) {

@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { SiteHeader } from "@/components/layout/SiteHeader";
 import { AdSlot } from "@/components/ads/AdSlot";
+import { CitySieveLogo } from "@/components/CitySieveLogo";
 
 export default function HomePage() {
   return (
@@ -9,15 +10,20 @@ export default function HomePage() {
 
       <main className="flex flex-1 flex-col items-center justify-center px-4">
         <div className="mx-auto max-w-3xl text-center">
-          <h2 className="text-4xl font-bold tracking-tight sm:text-5xl md:text-6xl">
+          {/* Brand hero  -  stacked lockup with entrance animation */}
+          <div className="animate-hero-0 mb-10 flex justify-center opacity-80">
+            <CitySieveLogo variant="icon-only" iconSize={48} />
+          </div>
+
+          <h2 className="animate-hero-1 text-4xl font-bold tracking-tight sm:text-5xl md:text-6xl">
             Find your perfect
             <span className="block text-primary">place to live</span>
           </h2>
-          <p className="mt-6 text-lg text-muted-foreground sm:text-xl">
+          <p className="animate-hero-2 mt-6 text-lg text-muted-foreground sm:text-xl">
             Choosing where to move is overwhelming. CitySieve uses your commute, amenity, lifestyle and budget preferences to recommend areas that actually match what matters to you, using
             live data.
           </p>
-          <div className="mt-10 flex flex-col items-center gap-4 sm:flex-row sm:justify-center">
+          <div className="animate-hero-3 mt-10 flex flex-col items-center gap-4 sm:flex-row sm:justify-center">
             <Link
               href="/quick-survey"
               className="inline-flex h-12 items-center rounded-lg bg-primary px-8 text-lg font-semibold text-primary-foreground shadow hover:bg-primary/90"

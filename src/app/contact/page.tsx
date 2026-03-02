@@ -4,8 +4,8 @@ import { ContactForm } from './ContactForm';
 import { BackButton } from '@/components/ui/BackButton';
 
 export const metadata: Metadata = {
-  title: 'Contact — CitySieve',
-  description: 'Get in touch with the CitySieve team — questions, feedback, bug reports, or anything else.',
+  title: 'Contact  -  CitySieve',
+  description: 'Get in touch with the CitySieve team  -  questions, feedback, bug reports, or anything else.',
 };
 
 export default function ContactPage() {

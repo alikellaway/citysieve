@@ -75,7 +75,7 @@ export function ResultCard({ result, rank, isActive, isHovered, onClick, onHover
   return (
     <Card
       className={cn(
-        'cursor-pointer transition-shadow hover:shadow-md',
+        'group cursor-pointer transition-all duration-300 hover:-translate-y-1 hover:shadow-lg',
         isActive && 'ring-2 ring-primary',
         isHovered && !isActive && 'ring-1 ring-primary/60'
       )}
@@ -94,7 +94,7 @@ export function ResultCard({ result, rank, isActive, isHovered, onClick, onHover
             </span>
             <CardTitle className="text-base">{result.area.name}</CardTitle>
           </div>
-          <span className="text-lg font-bold text-primary">
+          <span className="text-lg font-bold text-primary transition-transform duration-300 group-hover:scale-110">
             {Math.round(result.score)}%
           </span>
         </div>

@@ -15,7 +15,7 @@ export function ThemeToggle() {
   const { theme, setTheme, resolvedTheme } = useTheme();
   const [mounted, setMounted] = useState(false);
 
-  // Avoid hydration mismatch — only render icon after mount
+  // Avoid hydration mismatch  -  only render icon after mount
   useEffect(() => setMounted(true), []);
 
   if (!mounted) {

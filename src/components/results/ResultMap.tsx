@@ -60,7 +60,7 @@ function createPinIcon(rank: number, state: PinState): L.DivIcon {
 
   return L.divIcon({
     html: svg,
-    className: '',
+    className: 'animate-map-pin',
     iconSize: [pillW, totalH],
     iconAnchor: [cx, totalH],
     popupAnchor: [0, -totalH - 4],
