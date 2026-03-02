@@ -6,7 +6,7 @@ All components are in `src/components/`.
 
 ### `SiteHeader` (`layout/SiteHeader.tsx`)
 - Used on: landing page, survey layout, results page, my-surveys page, and all static pages (About, Contact, Privacy, FAQ)
-- Contains: logo link (`/`) + nav links (About, FAQ — hidden on mobile) + `ThemeToggle` + `AuthButton`
+- Contains: logo link (`/`) + `ThemeToggle` + `AuthButton`
 - The survey layout adds it automatically — don't duplicate it in survey step pages or the review page
 
 ### `SiteFooter` (`layout/SiteFooter.tsx`)
