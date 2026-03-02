@@ -1,7 +1,8 @@
-import type { SurveyState, CommuteMode } from '@/lib/survey/types';
+import type { SurveyState, CommuteMode, TenureType } from '@/lib/survey/types';
 import { extractWeights, type ScoringWeights } from './weights';
 import { applyHardFiltersWithReasons, type RejectedArea } from './filters';
 import { bestCommuteTime } from './commute';
+import { calculatePriceScore, PRICE_WEIGHT } from './price';
 
 export interface AreaProfile {
   id: string;
@@ -115,6 +116,13 @@ function scoreArea(
       (area.normalizedAmenities.restaurantsCafes || 0)) /
     2;
   weightEntries.push(['socialScene', weights.socialScene, socialScore]);
+
+  const priceResult = calculatePriceScore(
+    area.outcode,
+    state.profile.budget,
+    state.profile.tenureType as TenureType | null
+  );
+  weightEntries.push(['price', PRICE_WEIGHT, priceResult.score]);
 
   // Calculate weighted average
   let totalWeight = 0;

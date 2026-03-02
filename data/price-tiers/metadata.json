@@ -1,0 +1,9 @@
+{
+  "lastUpdated": "2026-03-02T23:17:23.348Z",
+  "saleVersion": "1.0-fallback",
+  "rentVersion": "1.0-fallback",
+  "sources": {
+    "sale": "HM Land Registry (fallback - needs manual setup)",
+    "rent": "VOA Local Reference Rents (fallback - needs manual setup)"
+  }
+}
