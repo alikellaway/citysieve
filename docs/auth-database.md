@@ -41,7 +41,7 @@ Extends the NextAuth `Session` type so `session.user.id` is typed as `string`.
 
 ### Schema (`prisma/schema.prisma`)
 
-5 models:
+6 models:
 
 | Model | Purpose |
 |-------|---------|
@@ -50,6 +50,7 @@ Extends the NextAuth `Session` type so `session.user.id` is typed as `string`.
 | `Session` | Database session. Unique on `sessionToken` |
 | `VerificationToken` | Email verification (unused currently). Unique on `[identifier, token]` |
 | `SavedSurvey` | Stored survey state as JSON string. Belongs to User. Indexed on `userId` |
+| `SurveyAnalytics` | Implicit analytics record per survey run. No FK to User — `userId` is nullable (anonymous users). See `analytics-analyst` skill for query patterns |
 
 ### Database
 

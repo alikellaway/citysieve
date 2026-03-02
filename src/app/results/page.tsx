@@ -4,6 +4,7 @@ import { useEffect, useState, useCallback, useRef } from 'react';
 import React from 'react';
 import dynamic from 'next/dynamic';
 import Link from 'next/link';
+import Image from 'next/image';
 import { useRouter } from 'next/navigation';
 import { useSession } from 'next-auth/react';
 import { useSurvey } from '@/hooks/useSurvey';
@@ -464,6 +465,29 @@ export default function ResultsPage() {
       setResultRings([{ label: 'Within 20 km', items: namedResults }]);
       setSearchedRadiusKm(20);
       setTransitionPhase('done');
+
+      // --- Fire Analytics Background Fetch ---
+      fetch('/api/analytics/survey-run', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          surveyMode: state.surveyMode,
+          surveyState: state,
+          topResults: namedResults.map((r) => ({
+            name: r.area.name,
+            outcode: r.area.outcode,
+            score: r.score,
+            coordinates: r.area.coordinates,
+            highlights: r.highlights,
+            commuteEstimate: r.area.commuteEstimate,
+          })),
+          totalCandidates: allCandidates.length,
+          rejectedCount: rejected.length,
+          passedCount: passedButNotTop.length,
+          radiusKm: 20,
+        }),
+      }).catch(console.error); // Fire and forget
+      // ---------------------------------------
     } catch (err) {
       setIsFiltering(false);
       setError(err instanceof Error ? err.message : 'Something went wrong');
@@ -718,10 +742,26 @@ export default function ResultsPage() {
           {allResults.length === 0 ? (
             <Card>
               <CardContent className="py-8">
-                <div className="text-center mb-6">
-                  <p className="text-lg font-medium">No matching areas found</p>
+                <div className="mb-6 flex justify-center w-full">
+                  <Image 
+                    src="/illustration-mono-light.png" 
+                    alt="No matches found" 
+                    width={200} 
+                    height={266} 
+                    className="h-32 md:h-48 w-auto object-contain dark:hidden opacity-80"
+                  />
+                  <Image 
+                    src="/illustration-mono-dark.png" 
+                    alt="No matches found" 
+                    width={200} 
+                    height={266} 
+                    className="h-32 md:h-48 w-auto object-contain hidden dark:block opacity-80"
+                  />
+                </div>
+                <div className="text-center mb-6 max-w-md mx-auto">
+                  <p className="text-xl font-medium">No matching areas found</p>
                   <p className="mt-2 text-sm text-muted-foreground">
-                    Your filters rejected all checked areas. Here&apos;s what happened:
+                    We sifted through the whole city but couldn&apos;t find a perfect match. Your filters rejected all checked areas. Here&apos;s what happened:
                   </p>
                 </div>
 

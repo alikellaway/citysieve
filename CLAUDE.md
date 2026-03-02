@@ -30,6 +30,7 @@ NEXT_PUBLIC_SPONSORED_URL=    # Optional: URL for sponsored slot in area modal
 NEXT_PUBLIC_SPONSORED_LABEL=  # Optional: Sponsor name (e.g. "Habito")
 NEXT_PUBLIC_SPONSORED_TEXT=   # Optional: Short tagline (e.g. "Find your best mortgage")
 NEXT_PUBLIC_ADSENSE_PUB_ID=   # Optional: Google AdSense display ads (e.g. "ca-pub-1815955226233160")
+ANALYTICS_API_KEY=            # Bearer token for GET /api/admin/analytics — generate with: openssl rand -base64 32
 ```
 
 ## Critical Gotchas
@@ -110,6 +111,10 @@ Use sub-agents to keep the main context clean and speed up focused work. Prefer 
 |-------|---------------|-------------|
 | `session-roundup` | `/session-roundup` | End of every coding session — updates docs and commits |
 | `survey-data-flow` | Auto-loaded by Claude | Working on survey steps, scoring, results page, or Overpass integration |
+| `analytics-analyst` | Load skill when asked to query or analyse usage data | Querying `SurveyAnalytics`, writing analysis scripts, investigating area popularity or preference trends |
+| `restart-local-server` | "restart the server" / "bounce the server" | Kill the process on port 3000 and restart `npm run dev` locally — **not for production** |
+| `boot-and-browse` | "boot the server" / "start the app" | Boot the local server if not running, then open browser to `localhost:3000` |
+| `tools-and-research` | Mention "external skills" or load skill | Access the global skills repository in `tools_and_research` |
 
 ## Session Round-up
 

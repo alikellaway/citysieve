@@ -68,3 +68,16 @@ model SavedSurvey {
 
   @@index([userId])
 }
+
+model SurveyAnalytics {
+  id              String   @id @default(cuid())
+  createdAt       DateTime @default(now())
+  userId          String?
+  surveyMode      String?
+  surveyState     String
+  topResults      String
+  totalCandidates Int
+  rejectedCount   Int
+  passedCount     Int
+  radiusKm        Int
+}

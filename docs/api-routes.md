@@ -106,6 +106,49 @@ Permanently deletes the authenticated user's account (cascades to Account, Sessi
 - **Auth**: Required
 - **Response**: `{ success: true }` — client should call `signOut()` on success
 
+## GET /api/admin/analytics
+
+Returns `SurveyAnalytics` rows for analysis. Intended for use by Claude agents and the project owner — not exposed to end users.
+
+- **Auth**: `Authorization: Bearer <ANALYTICS_API_KEY>` header required. Key is set in `.env.local` (dev) and `.env.production` (prod). Returns 401 if missing or wrong.
+- **Query params**:
+  - `limit` — max rows to return (default 200, hard cap 1000)
+  - `offset` — pagination offset (default 0)
+  - `since` — ISO date string to filter by `createdAt >=` (e.g. `2026-01-01`)
+- **Response**:
+  ```json
+  {
+    "count": 42,
+    "offset": 0,
+    "limit": 200,
+    "rows": [{ "id", "createdAt", "userId", "surveyMode", "surveyState", "topResults", "totalCandidates", "rejectedCount", "passedCount", "radiusKm" }]
+  }
+  ```
+  `surveyState` and `topResults` are pre-parsed from JSON strings into objects.
+- **Usage**: See the `analytics-analyst` skill for ready-to-run `curl` + `jq` analysis patterns.
+
+## POST /api/analytics/survey-run
+
+Records an analytics snapshot at the end of every survey run. Fired as a background (fire-and-forget) fetch from the results page immediately after results are displayed.
+
+- **Auth**: Optional — captures `userId` if the user is signed in, otherwise records `null`
+- **Body**:
+  ```json
+  {
+    "surveyMode": "full" | "quick" | null,
+    "surveyState": { ...SurveyState },
+    "topResults": [{ "name", "outcode", "score", "coordinates", "highlights", "commuteEstimate" }],
+    "totalCandidates": 180,
+    "rejectedCount": 42,
+    "passedCount": 128,
+    "radiusKm": 20
+  }
+  ```
+- **Response**: `{ success: true }` (always 200 — errors are swallowed to avoid console noise on the client)
+- **Privacy**: Server strips `workLocation.label` and `familyLocation.label` before persisting; coordinates are rounded to 3 decimal places (~100m precision)
+- **Validation**: Zod schema validated on the server — invalid payloads return 400 but are otherwise ignored by the client
+- **Storage**: Writes to the `SurveyAnalytics` table in SQLite — see the `analytics-analyst` skill for query patterns
+
 ## Auth pattern for survey routes
 
 The middleware at `src/middleware.ts` checks for the existence of the `authjs.session-token` cookie on all `/api/survey/*` routes. Each route then calls `await auth()` for the authoritative session check. Auth is optional for the survey UI — users can complete the survey and see results without signing in. Auth only gates saving/loading surveys.
