@@ -49,6 +49,7 @@ COPY --from=builder /app/.next/static ./.next/static
 COPY --from=builder /app/prisma ./prisma
 COPY --from=builder /app/prisma.config.ts ./
 COPY --from=builder /app/src/generated ./src/generated
+COPY --from=builder /app/node_modules/@libsql ./node_modules/@libsql
 
 # Install runtime deps needed for Prisma CLI (migrate deploy)
 RUN npm install dotenv
