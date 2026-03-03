@@ -267,7 +267,10 @@ export default function ReviewPage() {
       )}
 
       <div className="mt-8 flex justify-center">
-        <Button size="lg" onClick={() => router.push('/results')}>
+        <Button size="lg" onClick={() => {
+          sessionStorage.setItem('citysieve_survey_completed', 'true');
+          router.push('/results');
+        }}>
           Get Results
         </Button>
       </div>

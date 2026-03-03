@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Providers } from "@/app/providers";
 import { SiteFooter } from "@/components/layout/SiteFooter";
 import { AdSenseLoader } from "@/components/consent/AdSenseLoader";
+import { DonatePopup } from "@/components/donate/DonatePopup";
 import "@/styles/globals.css";
 
 const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL ?? "https://citysieve.com";
@@ -51,6 +52,7 @@ export default function RootLayout({
         <Providers>
           {children}
           <SiteFooter />
+          <DonatePopup />
           {/* AdSense is loaded client-side only after cookie consent is granted */}
           <AdSenseLoader />
         </Providers>

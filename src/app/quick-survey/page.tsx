@@ -255,6 +255,7 @@ export default function QuickSurveyPage() {
       remoteRegion: isRemote ? remoteRegion : null,
     });
     loadState(state);
+    sessionStorage.setItem('citysieve_survey_completed', 'true');
     router.push('/results');
   }
 
