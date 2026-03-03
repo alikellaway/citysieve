@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useState, useCallback } from 'react';
-import { MapContainer, TileLayer, useMap, useMapEvents } from 'react-leaflet';
+import { MapContainer, TileLayer, useMap, useMapEvents, Circle, Tooltip } from 'react-leaflet';
 import L from 'leaflet';
 import { useTheme } from 'next-themes';
 import { Play } from 'lucide-react';
@@ -226,13 +226,99 @@ function ResumeTourButton({ onResume }: { onResume: () => void }) {
   );
 }
 
+// ─── SearchAreaCircles ───────────────────────────────────────────────────────
+function SearchAreaCircles({
+  centre,
+  searchedRadiusKm,
+  expandedRadiusKm,
+}: {
+  centre: [number, number];
+  searchedRadiusKm?: number;
+  expandedRadiusKm?: number;
+}) {
+  const { resolvedTheme } = useTheme();
+  const isDark = resolvedTheme === 'dark';
+  
+  if (!searchedRadiusKm) return null;
+
+  const innerColor = isDark ? 'rgba(99, 102, 241, 0.15)' : 'rgba(99, 102, 241, 0.1)';
+  const innerStroke = isDark ? 'rgba(99, 102, 241, 0.4)' : 'rgba(99, 102, 241, 0.3)';
+  const outerColor = 'transparent';
+  const outerStroke = isDark ? 'rgba(99, 102, 241, 0.25)' : 'rgba(99, 102, 241, 0.2)';
+
+  return (
+    <>
+      <CircleWithLabel
+        centre={centre}
+        radiusKm={searchedRadiusKm}
+        fillColor={innerColor}
+        strokeColor={innerStroke}
+        label={searchedRadiusKm <= 10 ? `${searchedRadiusKm} km` : undefined}
+        isDark={isDark}
+      />
+      {expandedRadiusKm && expandedRadiusKm > searchedRadiusKm && (
+        <CircleWithLabel
+          centre={centre}
+          radiusKm={expandedRadiusKm}
+          fillColor={outerColor}
+          strokeColor={outerStroke}
+          label={`${searchedRadiusKm}–${expandedRadiusKm} km`}
+          isDark={isDark}
+        />
+      )}
+    </>
+  );
+}
+
+function CircleWithLabel({
+  centre,
+  radiusKm,
+  fillColor,
+  strokeColor,
+  label,
+  isDark,
+}: {
+  centre: [number, number];
+  radiusKm: number;
+  fillColor: string;
+  strokeColor: string;
+  label?: string;
+  isDark: boolean;
+}) {
+  const radiusMeters = radiusKm * 1000;
+
+  return (
+    <Circle
+      center={centre}
+      radius={radiusMeters}
+      pathOptions={{
+        fillColor,
+        fillOpacity: 1,
+        color: strokeColor,
+        weight: 2,
+        dashArray: label ? undefined : '8, 8',
+      }}
+    >
+      {label && (
+        <Tooltip direction="center" permanent interactive={false} className="!bg-transparent !border-0 !shadow-none">
+          <span className={`text-xs font-medium px-2 py-1 rounded-full ${isDark ? 'bg-slate-800/80 text-slate-200' : 'bg-white/80 text-slate-700'}`}>
+            {label}
+          </span>
+        </Tooltip>
+      )}
+    </Circle>
+  );
+}
+
 // ─── LoadingMap ──────────────────────────────────────────────────────────────
 interface LoadingMapProps {
   centre: { lat: number; lng: number };
   onMapReady?: (map: L.Map) => void;
   candidates?: CandidateArea[];
   activeCandidateIndex?: number | null;
-  candidateStatus?: Map<string, CandidateStatus>; // kept for prop compat
+  candidateStatus?: Map<string, CandidateStatus>;
+  searchedRadiusKm?: number;
+  expandedRadiusKm?: number;
 }
 
 export function LoadingMap({
@@ -240,6 +326,8 @@ export function LoadingMap({
   onMapReady,
   candidates = [],
   activeCandidateIndex = null,
+  searchedRadiusKm,
+  expandedRadiusKm,
 }: LoadingMapProps) {
   const { resolvedTheme } = useTheme();
   const tile = resolvedTheme === 'dark' ? TILE_LAYERS.dark : TILE_LAYERS.light;
@@ -285,6 +373,11 @@ export function LoadingMap({
       >
         <TileLoadingIndicator onLoadingChange={handleTilesLoadingChange} />
         <TileLayer key={tile.url} attribution={tile.attribution} url={tile.url} />
+        <SearchAreaCircles
+          centre={initialCenter}
+          searchedRadiusKm={searchedRadiusKm}
+          expandedRadiusKm={expandedRadiusKm}
+        />
         {onMapReady && (
           <MapController onMapReady={handleMapReady} initialCenter={initialCenter} />
         )}

@@ -40,7 +40,7 @@ function createPinIcon(rank: number, state: PinState): L.DivIcon {
   const ptw = 7; // half-width of pointer base
 
   const svg = `
-    <svg width="${pillW}" height="${totalH}" viewBox="0 0 ${pillW} ${totalH}" fill="none" xmlns="http://www.w3.org/2000/svg" style="filter:drop-shadow(0 2px 4px rgba(0,0,0,0.35))">
+    <svg class="animate-map-pin" width="${pillW}" height="${totalH}" viewBox="0 0 ${pillW} ${totalH}" fill="none" xmlns="http://www.w3.org/2000/svg" style="filter:drop-shadow(0 2px 4px rgba(0,0,0,0.35))">
       <rect x="1" y="1" width="${pillW - 2}" height="${pillH - 2}" rx="${r}" ry="${r}" fill="${color}" stroke="white" stroke-width="1.5"/>
       <polygon points="${cx - ptw},${pillH - 1} ${cx + ptw},${pillH - 1} ${cx},${totalH - 1}" fill="${color}"/>
       <line x1="${cx - ptw}" y1="${pillH - 1}" x2="${cx}" y2="${totalH - 1}" stroke="white" stroke-width="1.5" stroke-linecap="round"/>
@@ -60,7 +60,7 @@ function createPinIcon(rank: number, state: PinState): L.DivIcon {
 
   return L.divIcon({
     html: svg,
-    className: 'animate-map-pin',
+    className: '',
     iconSize: [pillW, totalH],
     iconAnchor: [cx, totalH],
     popupAnchor: [0, -totalH - 4],

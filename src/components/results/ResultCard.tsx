@@ -4,7 +4,7 @@ import { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { ChevronDown, ChevronUp, ArrowRight } from 'lucide-react';
+import { ChevronDown, ArrowRight } from 'lucide-react';
 import type { ScoredArea } from '@/lib/scoring/engine';
 import { HIGHLIGHT_LABELS } from '@/lib/scoring/labels';
 import { cn } from '@/lib/utils';
@@ -45,7 +45,7 @@ function ScoreBreakdown({
   if (activeDimensions.length === 0) return null;
 
   return (
-    <div className="mt-3 space-y-1.5">
+    <div className="pt-2 pb-1 space-y-1.5">
       {activeDimensions.map((key) => {
         const score = breakdown[key];
         const weight = weights[key as keyof typeof weights] ?? 0;
@@ -83,7 +83,7 @@ export function ResultCard({ result, rank, isActive, isHovered, onClick, onHover
       onMouseEnter={onHover}
       onMouseLeave={onLeave}
     >
-      <CardHeader className="pb-2">
+      <CardHeader className="p-4 pb-2">
         <div className="flex items-start justify-between">
           <div className="flex items-center gap-3">
             <span
@@ -99,7 +99,7 @@ export function ResultCard({ result, rank, isActive, isHovered, onClick, onHover
           </span>
         </div>
       </CardHeader>
-      <CardContent>
+      <CardContent className="p-4 pt-0">
         <div className="flex flex-wrap gap-1.5">
           {result.highlights.map((h) => (
             <Badge key={h} variant="secondary">
@@ -107,25 +107,40 @@ export function ResultCard({ result, rank, isActive, isHovered, onClick, onHover
             </Badge>
           ))}
         </div>
-        <Button
-          variant="ghost"
-          size="sm"
-          className="mt-3 w-full justify-start sm:w-auto px-2 -ml-2 text-xs text-muted-foreground hover:text-foreground"
-          onClick={(e) => { e.stopPropagation(); setShowBreakdown(!showBreakdown); }}
-        >
-          {showBreakdown ? <ChevronUp className="mr-1.5 h-3.5 w-3.5" /> : <ChevronDown className="mr-1.5 h-3.5 w-3.5" />}
-          Score breakdown
-        </Button>
-        {showBreakdown && <ScoreBreakdown result={result} />}
-        <div className="mt-4 flex sm:justify-end">
+        <div className="mt-3 flex items-center gap-2">
+          <Button
+            variant="secondary"
+            size="sm"
+            className="flex-1 justify-between text-xs text-muted-foreground hover:text-foreground group h-8"
+            onClick={(e) => { e.stopPropagation(); setShowBreakdown(!showBreakdown); }}
+          >
+            Score breakdown
+            <ChevronDown 
+              className={cn(
+                "h-4 w-4 transition-transform duration-300 ease-in-out group-hover:text-foreground",
+                showBreakdown && "rotate-180"
+              )} 
+            />
+          </Button>
           <Button
             size="sm"
-            className="w-full sm:w-auto"
+            className="shrink-0 h-8 text-xs"
             onClick={(e) => { e.stopPropagation(); onExplore(); }}
           >
             Explore area
-            <ArrowRight className="ml-2 h-4 w-4" />
+            <ArrowRight className="ml-1.5 h-3.5 w-3.5" />
           </Button>
+        </div>
+          
+        <div 
+          className={cn(
+            "grid transition-all duration-300 ease-in-out",
+            showBreakdown ? "grid-rows-[1fr] opacity-100 mt-2" : "grid-rows-[0fr] opacity-0 mt-0"
+          )}
+        >
+          <div className="overflow-hidden">
+            <ScoreBreakdown result={result} />
+          </div>
         </div>
       </CardContent>
     </Card>

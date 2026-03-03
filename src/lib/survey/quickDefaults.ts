@@ -84,6 +84,7 @@ export function buildQuickSurveyState(
 
   return {
     surveyMode: 'quick',
+    searchRadiusKm: 7,
     currentStep: 1,
 
     profile: {

@@ -180,7 +180,26 @@ export default function ResultsPage() {
   const [modalArea, setModalArea] = useState<ScoredArea | null>(null);
   const [saved, setSaved] = useState(false);
   const [searchedRadiusKm, setSearchedRadiusKm] = useState(20);
+  const expansionCountRef = useRef(0);
   const [isLoadingMore, setIsLoadingMore] = useState(false);
+  const [showFullSurveyBanner, setShowFullSurveyBanner] = useState(false);
+
+  // Track effective radius in a ref for use in runAnalysis
+  const searchedRadiusKmRef = useRef(20);
+  useEffect(() => {
+    searchedRadiusKmRef.current = searchedRadiusKm;
+  }, [searchedRadiusKm]);
+
+  // Initialize radius from survey state (only runs once when state.searchRadiusKm is set)
+  const initializedRef = useRef(false);
+  useEffect(() => {
+    if (initializedRef.current) return;
+    initializedRef.current = true;
+    if (state.searchRadiusKm) {
+      setSearchedRadiusKm(state.searchRadiusKm);
+      searchedRadiusKmRef.current = state.searchRadiusKm;
+    }
+  }, [state.searchRadiusKm]);
 
   const [candidates, setCandidates] = useState<CandidateArea[]>([]);
   const [candidateStatus, setCandidateStatus] = useState<Map<string, CandidateStatus>>(new Map());
@@ -231,6 +250,25 @@ export default function ResultsPage() {
     hasRun.current = true;
 
     try {
+      const cached = sessionStorage.getItem('citysieve_results_cache');
+      if (cached) {
+        const parsed = JSON.parse(cached);
+        if (JSON.stringify(parsed.state) === JSON.stringify(state)) {
+          setResultRings(parsed.resultRings);
+          setRejectedAreas(parsed.rejectedAreas);
+          setPassedButNotTop(parsed.passedButNotTop);
+          setSearchedRadiusKm(parsed.searchedRadiusKm);
+          setMapCentre(parsed.mapCentre);
+          centreRef.current = parsed.mapCentre;
+          setTransitionPhase('done');
+          return;
+        }
+      }
+    } catch (e) {
+      // ignore parsing errors
+    }
+
+    try {
       const centre = state.commute.workLocation ??
         state.family.familyLocation ??
         { label: 'UK', lat: 53.48, lng: -2.24 };
@@ -240,7 +278,7 @@ export default function ResultsPage() {
       setIsFiltering(true);
       setCurrentPhrase('Finding land areas...');
 
-      const baseCandidates = await generateValidCandidates(centre, 20);
+      const baseCandidates = await generateValidCandidates(centre, searchedRadiusKmRef.current);
 
       // Inject extra candidate points near any areas the user is considering.
       // For each named area, geocode it and generate a small supplementary hex
@@ -462,9 +500,23 @@ export default function ResultsPage() {
         })
       );
 
-      setResultRings([{ label: 'Within 20 km', items: namedResults }]);
-      setSearchedRadiusKm(20);
+      const newRings = [{ label: `Within ${searchedRadiusKm} km`, items: namedResults }];
+      setResultRings(newRings);
+      setSearchedRadiusKm(searchedRadiusKm);
       setTransitionPhase('done');
+
+      try {
+        sessionStorage.setItem('citysieve_results_cache', JSON.stringify({
+          state,
+          resultRings: newRings,
+          rejectedAreas: rejected,
+          passedButNotTop,
+          searchedRadiusKm: searchedRadiusKm,
+          mapCentre: { lat: centre.lat, lng: centre.lng }
+        }));
+      } catch (e) {
+        // ignore
+      }
 
       // --- Fire Analytics Background Fetch ---
       fetch('/api/analytics/survey-run', {
@@ -484,7 +536,7 @@ export default function ResultsPage() {
           totalCandidates: allCandidates.length,
           rejectedCount: rejected.length,
           passedCount: passedButNotTop.length,
-          radiusKm: 20,
+          radiusKm: searchedRadiusKm,
         }),
       }).catch(console.error); // Fire and forget
       // ---------------------------------------
@@ -646,8 +698,32 @@ export default function ResultsPage() {
       );
 
       const label = `${innerKm}–${outerKm} km from your centre`;
-      setResultRings((prev) => [...prev, { label, items: namedResults }]);
+      setResultRings((prev) => {
+        const newRings = [...prev, { label, items: namedResults }];
+        try {
+          sessionStorage.setItem('citysieve_results_cache', JSON.stringify({
+            state,
+            resultRings: newRings,
+            rejectedAreas,
+            passedButNotTop,
+            searchedRadiusKm: outerKm,
+            mapCentre: centre
+          }));
+        } catch (e) {
+          // ignore
+        }
+        return newRings;
+      });
       setSearchedRadiusKm(outerKm);
+      searchedRadiusKmRef.current = outerKm;
+      const prevCount = expansionCountRef.current;
+      expansionCountRef.current = prevCount + 1;
+      if (prevCount === 0 && state.surveyMode === 'quick') {
+        const bannerDismissed = localStorage.getItem('citysieve_full_survey_banner_dismissed');
+        if (!bannerDismissed) {
+          setShowFullSurveyBanner(true);
+        }
+      }
     } finally {
       setIsLoadingMore(false);
       setExpandCandidates([]);
@@ -722,6 +798,8 @@ export default function ResultsPage() {
             candidates={displayCandidates}
             activeCandidateIndex={activeCandidateIndex}
             candidateStatus={candidateStatus}
+            searchedRadiusKm={searchedRadiusKm}
+            expandedRadiusKm={isSearchingMore ? searchedRadiusKm + 20 : undefined}
           />
           <LoadingOverlay
             areaName={displayIsFiltering ? null : displayCurrentAreaName}
@@ -737,7 +815,13 @@ export default function ResultsPage() {
 
       {!isLoading && !isSearchingMore && !error && (
         <div className="mx-auto max-w-5xl px-4 py-6">
-          <h2 className="mb-6 text-lg text-muted-foreground">Your Results</h2>
+          <div className="mb-6 flex items-center justify-between">
+            <h2 className="text-lg text-muted-foreground">Your Results</h2>
+            <div className="flex items-center gap-2 rounded-full border border-border bg-muted/50 px-3 py-1 text-xs font-medium text-muted-foreground">
+              <span className="flex h-2 w-2 rounded-full bg-indigo-500"></span>
+              Search radius: {searchedRadiusKm} km
+            </div>
+          </div>
 
           {allResults.length === 0 ? (
             <Card>
@@ -879,6 +963,38 @@ export default function ResultsPage() {
               </div>
 
               <AreaInfoModal area={modalArea} onClose={() => setModalArea(null)} />
+
+              {showFullSurveyBanner && (
+                <div className="mb-4 rounded-lg border border-amber-200 bg-amber-50 p-4 dark:border-amber-800 dark:bg-amber-950/30">
+                  <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                    <p className="text-sm text-amber-800 dark:text-amber-200">
+                      Quick search complete! Want more tailored results? The full survey offers deeper customization.
+                    </p>
+                    <div className="flex gap-2">
+                      <Button
+                        size="sm"
+                        onClick={() => {
+                          setShowFullSurveyBanner(false);
+                          localStorage.setItem('citysieve_full_survey_banner_dismissed', 'true');
+                          router.push('/survey/review');
+                        }}
+                      >
+                        Start Full Survey
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        onClick={() => {
+                          setShowFullSurveyBanner(false);
+                          localStorage.setItem('citysieve_full_survey_banner_dismissed', 'true');
+                        }}
+                      >
+                        Dismiss
+                      </Button>
+                    </div>
+                  </div>
+                </div>
+              )}
 
               <div className="flex justify-center py-2">
                 <AdSlot variant="rectangle" />

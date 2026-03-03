@@ -77,4 +77,5 @@ export interface SurveyState {
   environment: EnvironmentStep;
   currentStep: number;
   surveyMode: 'full' | 'quick' | null;
+  searchRadiusKm?: number;
 }

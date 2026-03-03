@@ -13,11 +13,12 @@ Area names are fetched during the amenity batch via `getPostcodeDistrict()` (pos
 
 ### Ring-based "Search further afield"
 
-Results are grouped into **rings**. Each ring represents a 20 km band of distance from the search centre:
+Results are grouped into **rings**. Each ring represents a 20 km band of distance from the search centre. The initial radius is configurable based on survey mode:
 
-- Initial load: ring 0–20 km (`fetchRingResults(centre, innerKm=0, outerKm=20)`)
-- First "Search further afield" press: ring 20–40 km
-- Second press: ring 40–60 km, and so on
+- **Quick survey**: initial radius = 7 km
+- **Full survey**: initial radius = 20 km
+
+The radius is stored in `state.searchRadiusKm` and used to generate the initial candidate grid. Each "Search further afield" press adds another 20 km ring.
 
 The helper `fetchRingResults(centre, innerKm, outerKm, setProgressFn)`:
 1. Calls `generateCandidateAreas(centre, outerKm, 3)` to get the full outer grid
@@ -26,6 +27,18 @@ The helper `fetchRingResults(centre, innerKm, outerKm, setProgressFn)`:
 4. Returns the top 10 scored areas for that ring
 
 State involved: `resultRings: ResultRing[]` (accumulates rings), `searchedRadiusKm` (tracks the outermost ring searched), `isLoadingMore`, `moreProgress`. The map receives `allResults = resultRings.flatMap(r => r.items)` so all rings appear on the map simultaneously.
+
+### Results Caching
+
+To prevent unnecessary API calls and improve the user experience on page refresh, `src/app/results/page.tsx` saves its completed state to `sessionStorage` (`citysieve_results_cache`).
+
+The cached payload includes:
+- The full `SurveyState` at the time of the search
+- The generated `resultRings` and `searchedRadiusKm`
+- The `rejectedAreas` and `passedButNotTop` arrays
+- The `mapCentre`
+
+On initial load, the results page reads this cache. If the current `state` stringifies to exactly match the cached `state`, it instantly restores the UI and map position without running the search pipeline. If the user changes any survey answers (invalidating the state), the cache is ignored and a fresh search runs.
 
 ## Area generation (`src/lib/data/area-generator.ts`)
 
@@ -48,7 +61,7 @@ Each UK region in `REMOTE_REGIONS` stores three named anchor cities (`urban`, `s
 | No preference selected | `urban` anchor (best default — most populated areas nearby) |
 
 This ensures the hex grid fans out from a real populated centre rather than a geographic midpoint (which could be sea, mountains, or moorland).
-- **radiusKm** = 20 (default)
+- **radiusKm** = configurable (`state.searchRadiusKm`, defaults to 20 for full survey, 7 for quick survey)
 - **spacingKm** = 3 (default) — but see smart density below
 - Returns `CandidateArea[]` with `{ id, name: '', lat, lng }` — name is populated later via postcode lookup
 

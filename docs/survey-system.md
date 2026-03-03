@@ -29,6 +29,9 @@ All types used across the app are defined here. Read this file first when workin
 | 5 | transport | /survey/transport | TransportStep |
 | 6 | environment | /survey/environment | EnvironmentStep |
 
+### Step Transitions (`src/app/survey/template.tsx`)
+A Next.js `template.tsx` file wraps all survey pages to provide a consistent entrance transition. It uses Tailwind Animate utilities (`animate-in fade-in slide-in-from-right-8`) so that as users navigate through the steps, the new content smoothly slides in from the right. Unlike `layout.tsx`, `template.tsx` forces its children to remount on navigation, enabling these page-level animations.
+
 ## State management (`src/lib/survey/context.tsx`)
 
 Uses React Context + `useReducer`. State is initialized from `localStorage` (key: `'citysieve-survey-state'`) and persisted on every change via `useEffect`.
@@ -79,6 +82,7 @@ Takes a `QuickSurveyAnswers` object and returns a complete `SurveyState`:
 - **Commute**: from answers; `daysPerWeek = isRemote ? 0 : 5`
 - **Lifestyle / Transport / Environment / Family Likert values**: selected priority chips → `5`, unselected → `2`, if none selected → `3` (neutral)
 - **`surveyMode: 'quick'`**
+- **`searchRadiusKm: 7`** — quick survey uses a smaller 7km radius for faster results
 
 ### Priority chips (`QuickPriorityKey`)
 13 chips drawn from the scoring weight dimensions. Exported constants `QUICK_PRIORITY_KEYS` and `QUICK_PRIORITY_LABELS` keep chip labels in sync with `HIGHLIGHT_LABELS`.
