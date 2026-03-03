@@ -1,13 +1,16 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { usePathname } from 'next/navigation';
 
 const STORAGE_KEY = 'citysieve_donate_declined';
+const ANALYSIS_RUNNING_KEY = 'citysieve_analysis_running';
 const TRIGGER_DELAY = 30000;
 
 export function DonatePopup() {
   const [show, setShow] = useState(false);
   const [mounted, setMounted] = useState(false);
+  const pathname = usePathname();
 
   useEffect(() => {
     setMounted(true);
@@ -16,14 +19,21 @@ export function DonatePopup() {
     if (declined) return;
 
     const surveyCompleted = sessionStorage.getItem('citysieve_survey_completed');
-    const delay = surveyCompleted ? 5000 : TRIGGER_DELAY;
+    if (!surveyCompleted) return;
+
+    const isOnResults = pathname === '/results';
+    const isAnalysisRunning = isOnResults && sessionStorage.getItem(ANALYSIS_RUNNING_KEY) === 'true';
+
+    if (isAnalysisRunning) return;
+
+    const delay = 10000;
 
     const timer = setTimeout(() => {
       setShow(true);
     }, delay);
 
     return () => clearTimeout(timer);
-  }, []);
+  }, [pathname]);
 
   const handleDecline = () => {
     sessionStorage.setItem(STORAGE_KEY, 'true');

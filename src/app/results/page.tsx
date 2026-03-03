@@ -249,6 +249,8 @@ export default function ResultsPage() {
     if (hasRun.current) return;
     hasRun.current = true;
 
+    sessionStorage.setItem('citysieve_analysis_running', 'true');
+
     try {
       const cached = sessionStorage.getItem('citysieve_results_cache');
       if (cached) {
