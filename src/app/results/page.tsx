@@ -20,7 +20,7 @@ import { LoadingOverlay } from '@/components/results/LoadingOverlay';
 import { LoadingProgressBar } from '@/components/results/LoadingProgressBar';
 import { AdSlot } from '@/components/ads/AdSlot';
 import { formatMinutes } from '@/lib/format-duration';
-import { DonateButton } from '@/components/donate/DonateButton';
+
 import { SiteHeader } from '@/components/layout/SiteHeader';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
@@ -500,9 +500,9 @@ export default function ResultsPage() {
         })
       );
 
-      const newRings = [{ label: `Within ${searchedRadiusKm} km`, items: namedResults }];
+      const newRings = [{ label: `Within ${searchedRadiusKmRef.current} km`, items: namedResults }];
       setResultRings(newRings);
-      setSearchedRadiusKm(searchedRadiusKm);
+      setSearchedRadiusKm(searchedRadiusKmRef.current);
       setTransitionPhase('done');
 
       try {
@@ -511,7 +511,7 @@ export default function ResultsPage() {
           resultRings: newRings,
           rejectedAreas: rejected,
           passedButNotTop,
-          searchedRadiusKm: searchedRadiusKm,
+          searchedRadiusKm: searchedRadiusKmRef.current,
           mapCentre: { lat: centre.lat, lng: centre.lng }
         }));
       } catch (e) {
@@ -536,7 +536,7 @@ export default function ResultsPage() {
           totalCandidates: allCandidates.length,
           rejectedCount: rejected.length,
           passedCount: passedButNotTop.length,
-          radiusKm: searchedRadiusKm,
+          radiusKm: searchedRadiusKmRef.current,
         }),
       }).catch(console.error); // Fire and forget
       // ---------------------------------------
@@ -1015,7 +1015,6 @@ export default function ResultsPage() {
                 <Button variant="outline" onClick={handleStartOver}>
                   Start Over
                 </Button>
-                <DonateButton />
               </div>
 
               {state.surveyMode === 'quick' && (
