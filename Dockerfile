@@ -51,8 +51,7 @@ COPY --from=builder /app/prisma.config.ts ./
 COPY --from=builder /app/src/generated ./src/generated
 COPY --from=builder /app/node_modules/@libsql ./node_modules/@libsql
 
-# Install runtime deps needed for Prisma CLI (migrate deploy)
-RUN npm install dotenv
+COPY --from=builder /app/node_modules/dotenv ./node_modules/dotenv
 
 # Create data directory for SQLite
 RUN mkdir -p /app/data && chown nextjs:nodejs /app/data
