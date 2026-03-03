@@ -6,6 +6,7 @@ import L from 'leaflet';
 import { useTheme } from 'next-themes';
 import type { ScoredArea } from '@/lib/scoring/engine';
 import { getRankColor } from '@/components/results/rankColors';
+import { CitySieveLogo } from '@/components/CitySieveLogo';
 
 import 'leaflet/dist/leaflet.css';
 
@@ -175,10 +176,7 @@ export function ResultMap({ results, activeIndex, hoverIndex, onMarkerClick, onM
     </MapContainer>
     {tilesLoading && (
       <div className="absolute inset-0 z-10 flex items-center justify-center rounded-lg bg-background/80 backdrop-blur-sm">
-        <div className="flex flex-col items-center gap-2">
-          <div className="h-6 w-6 animate-spin rounded-full border-2 border-primary border-t-transparent" />
-          <span className="text-sm text-muted-foreground">Loading map...</span>
-        </div>
+        <CitySieveLogo variant="icon-only" iconSize={40} animateDots />
       </div>
     )}
     </div>
@@ -207,6 +205,7 @@ function SearchAreaCircles({
       radiusKm={searchedRadiusKm}
       fillColor={innerColor}
       strokeColor={innerStroke}
+      label={searchedRadiusKm <= 10 ? `${searchedRadiusKm} km` : undefined}
       isDark={isDark}
     />
   );

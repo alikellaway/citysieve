@@ -49,7 +49,10 @@ export default function HomePage() {
             How it works
           </h3>
           <div className="grid gap-8 sm:grid-cols-3">
-            <div className="rounded-xl border bg-card p-6 text-center">
+            <Link
+              href="/survey/profile"
+              className="block rounded-xl border bg-card p-6 text-center transition-all duration-300 hover:-translate-y-2 hover:shadow-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+            >
               <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-primary/10 text-2xl">
                 1
               </div>
@@ -58,8 +61,11 @@ export default function HomePage() {
                 Answer questions about your commute, lifestyle, family needs,
                 and environment preferences.
               </p>
-            </div>
-            <div className="rounded-xl border bg-card p-6 text-center">
+            </Link>
+            <Link
+              href="/faq#how-scoring-works"
+              className="block rounded-xl border bg-card p-6 text-center transition-all duration-300 hover:-translate-y-2 hover:shadow-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+            >
               <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-primary/10 text-2xl">
                 2
               </div>
@@ -68,8 +74,11 @@ export default function HomePage() {
                 Using live OpenStreetMap data, we score areas on amenities,
                 transport links, and commute times.
               </p>
-            </div>
-            <div className="rounded-xl border bg-card p-6 text-center">
+            </Link>
+            <Link
+              href="/survey/profile"
+              className="block rounded-xl border bg-card p-6 text-center transition-all duration-300 hover:-translate-y-2 hover:shadow-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+            >
               <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-primary/10 text-2xl">
                 3
               </div>
@@ -78,7 +87,7 @@ export default function HomePage() {
                 Browse ranked results on an interactive map and find the
                 neighbourhood that fits you best.
               </p>
-            </div>
+            </Link>
           </div>
         </section>
       </main>

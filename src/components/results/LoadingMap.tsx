@@ -409,10 +409,7 @@ export function LoadingMap({
 
       {tilesLoading && !hasInitiallyLoadedRef.current && (
         <div className="absolute inset-0 z-10 flex items-center justify-center bg-background/80 backdrop-blur-sm pointer-events-none">
-          <div className="flex flex-col items-center gap-3">
-            <CitySieveLogo variant="icon-only" iconSize={40} animateDots />
-            <span className="text-sm text-muted-foreground">Loading map…</span>
-          </div>
+          <CitySieveLogo variant="icon-only" iconSize={40} animateDots />
         </div>
       )}
     </div>

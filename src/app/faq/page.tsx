@@ -9,7 +9,7 @@ export const metadata: Metadata = {
     'Frequently asked questions about CitySieve  -  how scoring works, what data we use, coverage, accuracy, and privacy.',
 };
 
-const faqs: { q: string; a: React.ReactNode }[] = [
+const faqs: { q: string; a: React.ReactNode; id?: string }[] = [
   {
     q: 'What areas does CitySieve cover?',
     a: (
@@ -22,6 +22,7 @@ const faqs: { q: string; a: React.ReactNode }[] = [
     ),
   },
   {
+    id: 'how-scoring-works',
     q: 'How does the scoring work?',
     a: (
       <>
@@ -202,8 +203,8 @@ export default function FAQPage() {
         </p>
 
         <dl className="divide-y">
-          {faqs.map(({ q, a }) => (
-            <div key={q} className="py-6">
+          {faqs.map(({ q, a, id }) => (
+            <div key={q} id={id} className="py-6">
               <dt className="mb-2 text-lg font-semibold">{q}</dt>
               <dd className="text-muted-foreground leading-relaxed">{a}</dd>
             </div>

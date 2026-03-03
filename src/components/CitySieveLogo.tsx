@@ -75,11 +75,13 @@ function SieveGridIcon({
           style={
             animateDots
               ? {
-                  animationName: 'logo-dot-pulse',
-                  animationDuration: '1.4s',
+                  // Stagger by diagonal band (col + row) so the wave crest
+                  // travels top-left → bottom-right, matching the logo gradient.
+                  animationName: 'logo-dot-wave',
+                  animationDuration: '1.6s',
                   animationTimingFunction: 'ease-in-out',
                   animationIterationCount: 'infinite',
-                  animationDelay: `${i * 80}ms`,
+                  animationDelay: `${(col + row) * 130}ms`,
                   animationFillMode: 'both',
                 }
               : undefined

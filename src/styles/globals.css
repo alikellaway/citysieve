@@ -80,10 +80,13 @@
   100% { transform: scale(8); opacity: 0; }
 }
 
-/* Logo dot pulse  -  used on the results loading screen */
-@keyframes logo-dot-pulse {
-  0%, 100% { fill-opacity: 0.15; }
-  50%       { fill-opacity: 1; }
+/* Logo dot wave  -  diagonal sweep animation used on loading screens.
+   Each dot gets a stagger delay based on (col + row) so the crest
+   travels top-left → bottom-right, matching the logo's opacity gradient. */
+@keyframes logo-dot-wave {
+  0%        { fill-opacity: 0.15; }
+  35%       { fill-opacity: 1;    }
+  65%, 100% { fill-opacity: 0.15; }
 }
 
 /* Hero entrance  -  one-shot fade + slide-up for the landing page logo lockup */
