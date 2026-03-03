@@ -1,7 +1,6 @@
 import Link from "next/link";
 import { SiteHeader } from "@/components/layout/SiteHeader";
 import { AdSlot } from "@/components/ads/AdSlot";
-import { CitySieveLogo } from "@/components/CitySieveLogo";
 
 export default function HomePage() {
   return (
@@ -11,11 +10,8 @@ export default function HomePage() {
       <main className="flex flex-1 flex-col items-center justify-center px-4">
         <div className="mx-auto max-w-3xl text-center">
           {/* Brand hero  -  stacked lockup with entrance animation */}
-          <div className="animate-hero-0 mb-10 flex justify-center opacity-80">
-            <CitySieveLogo variant="icon-only" iconSize={48} />
-          </div>
 
-          <h2 className="animate-hero-1 text-4xl font-bold tracking-tight sm:text-5xl md:text-6xl">
+          <h2 className="animate-hero-1 mt-8 text-4xl font-bold tracking-tight sm:text-5xl md:text-6xl">
             Find your perfect
             <span className="block text-primary">place to live</span>
           </h2>
