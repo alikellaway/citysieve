@@ -815,13 +815,7 @@ export default function ResultsPage() {
 
       {!isLoading && !isSearchingMore && !error && (
         <div className="mx-auto max-w-5xl px-4 py-6">
-          <div className="mb-6 flex items-center justify-between">
-            <h2 className="text-lg text-muted-foreground">Your Results</h2>
-            <div className="flex items-center gap-2 rounded-full border border-border bg-muted/50 px-3 py-1 text-xs font-medium text-muted-foreground">
-              <span className="flex h-2 w-2 rounded-full bg-indigo-500"></span>
-              Search radius: {searchedRadiusKm} km
-            </div>
-          </div>
+          <h2 className="mb-6 text-lg text-muted-foreground">Your Results</h2>
 
           {allResults.length === 0 ? (
             <Card>
@@ -909,6 +903,8 @@ export default function ResultsPage() {
                 onMarkerClick={handleMarkerClick}
                 onMarkerHover={handleMarkerHover}
                 disabled={isLoading}
+                centre={mapCentre}
+                searchedRadiusKm={searchedRadiusKm}
               />
 
               <div className="space-y-3">

@@ -130,7 +130,7 @@ All components are in `src/components/`.
 - **Props**: `results: ScoredArea[]`, `activeIndex: number | null`, `hoverIndex: number | null`, `onMarkerClick: (index: number) => void`, `onMarkerHover: (index: number | null) => void`
 - Leaflet `MapContainer` with CartoDB tile layer + custom `divIcon` markers per result
 - **Tile layers**: CartoDB Positron (light) / CartoDB Dark Matter (dark) — selected via `useTheme().resolvedTheme`. `key={tile.url}` forces Leaflet to swap layers when theme changes
-- **Pin design**: SVG teardrop with rank number displayed; colour-coded by tier (1–3 green, 4–7 amber, 8+ slate) — colours shared via `rankColors.ts`. The internal SVG content uses the `animate-map-pin` CSS class to drop and bounce in when rendered.
+- **Pin design**: SVG teardrop with rank number displayed; colour-coded by tier (1–3 green, 4–7 amber, 8+ slate) — colours shared via `rankColors.ts`. The `animate-map-pin` CSS class is applied to the Leaflet marker wrapper to drop and bounce in when initially rendered.
 - **Pin states**: default (28px), hover (32px), active (36px) — hover and active grow the pin
 - `FlyToActive` sub-component pans the map to the active pin on click
 - **Hover linking**: mouseover on pin or card highlights both; `hoverIndex` drives the sync

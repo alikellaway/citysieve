@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
-import { MapContainer, TileLayer, Marker, Popup, useMap, useMapEvents } from 'react-leaflet';
+import { MapContainer, TileLayer, Marker, Popup, useMap, useMapEvents, Circle, Tooltip } from 'react-leaflet';
 import L from 'leaflet';
 import { useTheme } from 'next-themes';
 import type { ScoredArea } from '@/lib/scoring/engine';
@@ -32,15 +32,16 @@ const PIN_SIZES: Record<PinState, { pillW: number; pillH: number; r: number; fon
   active:  { pillW: 44, pillH: 28, r: 8,  fontSize: 14 },
 };
 
-function createPinIcon(rank: number, state: PinState): L.DivIcon {
+function createPinIcon(rank: number, state: PinState, animate: boolean): L.DivIcon {
   const color = getRankColor(rank);
   const { pillW, pillH, r, fontSize } = PIN_SIZES[state];
   const totalH = pillH + POINTER_H;
   const cx = pillW / 2;
   const ptw = 7; // half-width of pointer base
 
+  const animationClass = animate ? 'animate-map-pin' : '';
   const svg = `
-    <svg class="animate-map-pin" width="${pillW}" height="${totalH}" viewBox="0 0 ${pillW} ${totalH}" fill="none" xmlns="http://www.w3.org/2000/svg" style="filter:drop-shadow(0 2px 4px rgba(0,0,0,0.35))">
+    <svg class="${animationClass}" width="${pillW}" height="${totalH}" viewBox="0 0 ${pillW} ${totalH}" fill="none" xmlns="http://www.w3.org/2000/svg" style="filter:drop-shadow(0 2px 4px rgba(0,0,0,0.35)); transition: width 0.2s ease, height 0.2s ease, viewBox 0.2s ease">
       <rect x="1" y="1" width="${pillW - 2}" height="${pillH - 2}" rx="${r}" ry="${r}" fill="${color}" stroke="white" stroke-width="1.5"/>
       <polygon points="${cx - ptw},${pillH - 1} ${cx + ptw},${pillH - 1} ${cx},${totalH - 1}" fill="${color}"/>
       <line x1="${cx - ptw}" y1="${pillH - 1}" x2="${cx}" y2="${totalH - 1}" stroke="white" stroke-width="1.5" stroke-linecap="round"/>
@@ -74,6 +75,8 @@ interface ResultMapProps {
   onMarkerClick: (index: number) => void;
   onMarkerHover: (index: number | null) => void;
   disabled?: boolean;
+  centre?: { lat: number; lng: number } | null;
+  searchedRadiusKm?: number;
 }
 
 function FlyToActive({ results, activeIndex }: { results: ScoredArea[]; activeIndex: number | null }) {
@@ -97,10 +100,21 @@ function TileLoadingIndicator({ onLoadingChange }: { onLoadingChange: (loading: 
   return null;
 }
 
-export function ResultMap({ results, activeIndex, hoverIndex, onMarkerClick, onMarkerHover, disabled = false }: ResultMapProps) {
+export function ResultMap({ results, activeIndex, hoverIndex, onMarkerClick, onMarkerHover, disabled = false, centre, searchedRadiusKm }: ResultMapProps) {
   const mapRef = useRef<L.Map | null>(null);
   const { resolvedTheme } = useTheme();
   const [tilesLoading, setTilesLoading] = useState(true);
+  const animatePinsRef = useRef(true);
+
+  useEffect(() => {
+    // Disable initial drop animation after it completes so hover doesn't re-trigger it
+    if (animatePinsRef.current) {
+      const timer = setTimeout(() => {
+        animatePinsRef.current = false;
+      }, 1000);
+      return () => clearTimeout(timer);
+    }
+  });
 
   if (results.length === 0) return null;
 
@@ -137,7 +151,7 @@ export function ResultMap({ results, activeIndex, hoverIndex, onMarkerClick, onM
           <Marker
             key={result.area.id}
             position={[result.area.coordinates.lat, result.area.coordinates.lng]}
-            icon={createPinIcon(rank, state)}
+            icon={createPinIcon(rank, state, animatePinsRef.current)}
             eventHandlers={{
               click: () => onMarkerClick(i),
               mouseover: () => onMarkerHover(i),
@@ -152,6 +166,12 @@ export function ResultMap({ results, activeIndex, hoverIndex, onMarkerClick, onM
           </Marker>
         );
       })}
+      {centre && searchedRadiusKm && (
+        <SearchAreaCircles
+          centre={[centre.lat, centre.lng]}
+          searchedRadiusKm={searchedRadiusKm}
+        />
+      )}
     </MapContainer>
     {tilesLoading && (
       <div className="absolute inset-0 z-10 flex items-center justify-center rounded-lg bg-background/80 backdrop-blur-sm">
@@ -162,5 +182,72 @@ export function ResultMap({ results, activeIndex, hoverIndex, onMarkerClick, onM
       </div>
     )}
     </div>
+  );
+}
+
+// ─── SearchAreaCircles ───────────────────────────────────────────────────────
+function SearchAreaCircles({
+  centre,
+  searchedRadiusKm,
+}: {
+  centre: [number, number];
+  searchedRadiusKm?: number;
+}) {
+  const { resolvedTheme } = useTheme();
+  const isDark = resolvedTheme === 'dark';
+  
+  if (!searchedRadiusKm) return null;
+
+  const innerColor = isDark ? 'rgba(99, 102, 241, 0.15)' : 'rgba(99, 102, 241, 0.1)';
+  const innerStroke = isDark ? 'rgba(99, 102, 241, 0.4)' : 'rgba(99, 102, 241, 0.3)';
+
+  return (
+    <CircleWithLabel
+      centre={centre}
+      radiusKm={searchedRadiusKm}
+      fillColor={innerColor}
+      strokeColor={innerStroke}
+      isDark={isDark}
+    />
+  );
+}
+
+function CircleWithLabel({
+  centre,
+  radiusKm,
+  fillColor,
+  strokeColor,
+  label,
+  isDark,
+}: {
+  centre: [number, number];
+  radiusKm: number;
+  fillColor: string;
+  strokeColor: string;
+  label?: string;
+  isDark: boolean;
+}) {
+  const radiusMeters = radiusKm * 1000;
+
+  return (
+    <Circle
+      center={centre}
+      radius={radiusMeters}
+      pathOptions={{
+        fillColor,
+        fillOpacity: 1,
+        color: strokeColor,
+        weight: 2,
+        dashArray: label ? undefined : '8, 8',
+      }}
+    >
+      {label && (
+        <Tooltip direction="center" permanent interactive={false} className="!bg-transparent !border-0 !shadow-none">
+          <span className={`text-xs font-medium px-2 py-1 rounded-full ${isDark ? 'bg-slate-800/80 text-slate-200' : 'bg-white/80 text-slate-700'}`}>
+            {label}
+          </span>
+        </Tooltip>
+      )}
+    </Circle>
   );
 }
