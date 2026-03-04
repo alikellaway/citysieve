@@ -6,7 +6,29 @@ on:
       - master
 
 jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+      - run: npm ci
+      - run: npm run lint
+      - run: npx tsc --noEmit
+      - run: npx prisma db push --schema=prisma/schema.prisma || true
+        env:
+          DATABASE_URL: file:./test.db
+      - run: npm run test
+        env:
+          DATABASE_URL: file:./test.db
+          AUTH_SECRET: test-secret
+          GOOGLE_CLIENT_ID: test-client-id
+          ANALYTICS_API_KEY: test-secret-key
+
   deploy:
+    needs: test
     runs-on: ubuntu-latest
     steps:
       - name: Deploy to production server

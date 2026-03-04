@@ -108,8 +108,10 @@ async function fetchWithRetry(
 }
 
   let res: Response;
+  let raw: { elements?: Array<{ tags?: Record<string, string> }> };
   try {
     res = await fetchWithRetry(query);
+    raw = await res.json();
   } catch (error) {
     console.error('Overpass fetch failed:', error);
     return NextResponse.json(
@@ -117,8 +119,6 @@ async function fetchWithRetry(
       { status: 503 }
     );
   }
-
-  const raw = await res.json();
 
   const counts: Record<string, number> = {
     supermarkets: 0,

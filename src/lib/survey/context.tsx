@@ -1,103 +1,10 @@
 'use client';
 
 import React, { createContext, useContext, useReducer, useEffect, type ReactNode } from 'react';
-import type {
-  SurveyState,
-  ProfileStep,
-  CommuteStep,
-  FamilyStep,
-  LifestyleStep,
-  TransportStep,
-  EnvironmentStep,
-} from './types';
+import type { SurveyState } from './types';
+import { initialState, surveyReducer, parseStoredState, type SurveyAction } from './reducer';
 
 const STORAGE_KEY = 'citysieve-survey-state';
-
-const initialState: SurveyState = {
-  profile: {
-    ageRange: null,
-    tenureType: null,
-    budget: null,
-    householdType: null,
-  },
-  commute: {
-    workLocation: null,
-    daysPerWeek: 5,
-    maxCommuteTime: 45,
-    commuteTimeIsHardCap: true,
-    commuteModes: [],
-    remoteRegion: null,
-  },
-  family: {
-    householdSize: 1,
-    childrenStatus: null,
-    schoolPriority: null,
-    familyLocation: null,
-    familyProximityImportance: 3,
-    socialImportance: 3,
-  },
-  lifestyle: {
-    supermarkets: 3,
-    highStreet: 3,
-    pubsBars: 3,
-    restaurantsCafes: 3,
-    parksGreenSpaces: 3,
-    gymsLeisure: 3,
-    healthcare: 3,
-    librariesCulture: 3,
-  },
-  transport: {
-    carOwnership: null,
-    publicTransportReliance: 3,
-    trainStationImportance: 3,
-    cycleFrequency: null,
-    broadbandImportance: 3,
-  },
-  environment: {
-    areaTypes: [],
-    peaceAndQuiet: 3,
-    excludeAreas: [],
-    consideringAreas: [],
-  },
-  currentStep: 1,
-  surveyMode: null,
-};
-
-type SurveyAction =
-  | { type: 'UPDATE_PROFILE'; payload: Partial<ProfileStep> }
-  | { type: 'UPDATE_COMMUTE'; payload: Partial<CommuteStep> }
-  | { type: 'UPDATE_FAMILY'; payload: Partial<FamilyStep> }
-  | { type: 'UPDATE_LIFESTYLE'; payload: Partial<LifestyleStep> }
-  | { type: 'UPDATE_TRANSPORT'; payload: Partial<TransportStep> }
-  | { type: 'UPDATE_ENVIRONMENT'; payload: Partial<EnvironmentStep> }
-  | { type: 'SET_STEP'; payload: number }
-  | { type: 'RESET' }
-  | { type: 'LOAD_STATE'; payload: SurveyState };
-
-function surveyReducer(state: SurveyState, action: SurveyAction): SurveyState {
-  switch (action.type) {
-    case 'UPDATE_PROFILE':
-      return { ...state, profile: { ...state.profile, ...action.payload } };
-    case 'UPDATE_COMMUTE':
-      return { ...state, commute: { ...state.commute, ...action.payload } };
-    case 'UPDATE_FAMILY':
-      return { ...state, family: { ...state.family, ...action.payload } };
-    case 'UPDATE_LIFESTYLE':
-      return { ...state, lifestyle: { ...state.lifestyle, ...action.payload } };
-    case 'UPDATE_TRANSPORT':
-      return { ...state, transport: { ...state.transport, ...action.payload } };
-    case 'UPDATE_ENVIRONMENT':
-      return { ...state, environment: { ...state.environment, ...action.payload } };
-    case 'SET_STEP':
-      return { ...state, currentStep: action.payload };
-    case 'RESET':
-      return { ...initialState };
-    case 'LOAD_STATE':
-      return { ...action.payload };
-    default:
-      return state;
-  }
-}
 
 interface SurveyContextValue {
   state: SurveyState;
@@ -108,40 +15,7 @@ const SurveyContext = createContext<SurveyContextValue | null>(null);
 
 function loadState(): SurveyState {
   if (typeof window === 'undefined') return initialState;
-  try {
-    const stored = localStorage.getItem(STORAGE_KEY);
-    if (stored) {
-      const parsed = JSON.parse(stored) as Record<string, unknown>;
-      const env = parsed.environment as Record<string, unknown> | undefined;
-      // Migration: areaType (single) -> areaTypes (array)
-      if (env && 'areaType' in env && !('areaTypes' in env)) {
-        const oldAreaType = env.areaType as string | null;
-        env.areaTypes = oldAreaType ? [oldAreaType] : [];
-        delete env.areaType;
-      }
-      // Migration: remove developmentFeeling (no longer used)
-      if (env && 'developmentFeeling' in env) {
-        delete env.developmentFeeling;
-      }
-      // Merge with initialState to fill in any fields added after the stored
-      // state was written (e.g. commuteTimeIsHardCap for existing sessions).
-      const typed = parsed as unknown as SurveyState;
-      return {
-        ...initialState,
-        ...typed,
-        commute: { ...initialState.commute, ...typed.commute },
-        profile: { ...initialState.profile, ...typed.profile },
-        family: { ...initialState.family, ...typed.family },
-        lifestyle: { ...initialState.lifestyle, ...typed.lifestyle },
-        transport: { ...initialState.transport, ...typed.transport },
-        environment: { ...initialState.environment, ...typed.environment },
-        surveyMode: typed.surveyMode ?? null,
-      };
-    }
-  } catch {
-    // Ignore parse errors, fall through to default
-  }
-  return initialState;
+  return parseStoredState(localStorage.getItem(STORAGE_KEY));
 }
 
 export function SurveyProvider({ children }: { children: ReactNode }) {
