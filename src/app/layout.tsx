@@ -36,6 +36,9 @@ export const metadata: Metadata = {
       "Take a quick survey about your priorities and discover the best areas to move to, powered by live OpenStreetMap data.",
     images: ["/og-image.png"],
   },
+  other: {
+    "google-adsense-account": "ca-pub-1815955226233160",
+  },
 };
 
 export default function RootLayout({
