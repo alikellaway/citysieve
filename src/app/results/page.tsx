@@ -10,7 +10,7 @@ import { useSession } from 'next-auth/react';
 import { useSurvey } from '@/hooks/useSurvey';
 import { generateCandidateAreas, type CandidateArea } from '@/lib/data/area-generator';
 import { getPostcodeDistrict, filterValidCandidates } from '@/lib/data/postcode';
-import { bestCommuteTime, commuteBreakdown, haversineDistance } from '@/lib/scoring/commute';
+import { bestCommuteTime, commuteBreakdown, haversineDistance, getEffectiveCommuteModes } from '@/lib/scoring/commute';
 import { scoreAndRankAreas, getFilterStatus, type AreaProfile, type ScoredArea, type ScoringResult } from '@/lib/scoring/engine';
 import { ResultCard } from '@/components/results/ResultCard';
 import { AreaInfoModal } from '@/components/results/AreaInfoModal';
@@ -396,20 +396,21 @@ export default function ResultsPage() {
               },
             };
 
-            if (state.commute.workLocation && state.commute.commuteModes.length > 0) {
+            const effectiveModes = getEffectiveCommuteModes(state);
+            if (state.commute.workLocation && effectiveModes.length > 0) {
               profile.commuteEstimate = bestCommuteTime(
                 c.lat,
                 c.lng,
                 state.commute.workLocation.lat,
                 state.commute.workLocation.lng,
-                state.commute.commuteModes,
+                effectiveModes,
               );
               profile.commuteBreakdown = commuteBreakdown(
                 c.lat,
                 c.lng,
                 state.commute.workLocation.lat,
                 state.commute.workLocation.lng,
-                state.commute.commuteModes,
+                effectiveModes,
               );
             }
 
@@ -629,20 +630,21 @@ export default function ResultsPage() {
               },
             };
 
-            if (state.commute.workLocation && state.commute.commuteModes.length > 0) {
+            const effectiveModes = getEffectiveCommuteModes(state);
+            if (state.commute.workLocation && effectiveModes.length > 0) {
               profile.commuteEstimate = bestCommuteTime(
                 c.lat,
                 c.lng,
                 state.commute.workLocation.lat,
                 state.commute.workLocation.lng,
-                state.commute.commuteModes,
+                effectiveModes,
               );
               profile.commuteBreakdown = commuteBreakdown(
                 c.lat,
                 c.lng,
                 state.commute.workLocation.lat,
                 state.commute.workLocation.lng,
-                state.commute.commuteModes,
+                effectiveModes,
               );
             }
 

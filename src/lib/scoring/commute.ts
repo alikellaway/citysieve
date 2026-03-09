@@ -1,4 +1,4 @@
-import type { CommuteMode } from '@/lib/survey/types';
+import type { CommuteMode, SurveyState } from '@/lib/survey/types';
 
 export function haversineDistance(
   lat1: number,
@@ -60,6 +60,28 @@ export function bestCommuteTime(
   );
 
   return Math.min(...times);
+}
+
+/**
+ * Returns the effective commute modes to use for scoring, augmenting the
+ * user's explicit commute mode selections with implied modes derived from
+ * carOwnership and cycleFrequency.
+ *
+ * - carOwnership === 'yes'   → inject 'drive' if not already selected
+ * - cycleFrequency === 'yes' → inject 'cycle' if not already selected
+ */
+export function getEffectiveCommuteModes(state: SurveyState): CommuteMode[] {
+  const modes = new Set<CommuteMode>(state.commute.commuteModes);
+
+  if (state.transport.carOwnership === 'yes') {
+    modes.add('drive');
+  }
+
+  if (state.transport.cycleFrequency === 'yes') {
+    modes.add('cycle');
+  }
+
+  return Array.from(modes);
 }
 
 /** Returns estimated commute minutes for each of the given modes. */

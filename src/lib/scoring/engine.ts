@@ -1,7 +1,7 @@
 import type { SurveyState, CommuteMode, TenureType } from '@/lib/survey/types';
 import { extractWeights, type ScoringWeights } from './weights';
 import { applyHardFiltersWithReasons, type RejectedArea } from './filters';
-import { bestCommuteTime } from './commute';
+import { bestCommuteTime, getEffectiveCommuteModes } from './commute';
 import { calculatePriceScore, PRICE_WEIGHT } from './price';
 
 export interface AreaProfile {
@@ -29,6 +29,8 @@ export interface ScoredArea {
   highlights: string[];
   breakdown: Record<string, number>;
   weights: ScoringWeights;
+  /** Categories whose weights were adjusted by profile nudges (ageRange, householdType, householdSize, carOwnership). */
+  nudgedCategories: string[];
 }
 
 export interface ScoringResult {
@@ -67,6 +69,7 @@ export function normalizeAmenities(areas: AreaProfile[]): AreaProfile[] {
 function scoreArea(
   area: AreaProfile,
   weights: ScoringWeights,
+  nudgedCategories: string[],
   state: SurveyState
 ): ScoredArea {
   const breakdown: Record<string, number> = {};
@@ -99,12 +102,13 @@ function scoreArea(
 
   // Add family proximity if applicable
   if (state.family.familyLocation) {
+    const effectiveModes = getEffectiveCommuteModes(state);
     const familyDist = bestCommuteTime(
       area.coordinates.lat,
       area.coordinates.lng,
       state.family.familyLocation.lat,
       state.family.familyLocation.lng,
-      state.commute.commuteModes.length > 0 ? state.commute.commuteModes : ['drive']
+      effectiveModes.length > 0 ? effectiveModes : ['drive']
     );
     const familyScore = Math.max(0, 1 - familyDist / 120); // 120 min max
     weightEntries.push(['familyProximity', weights.familyProximity, familyScore]);
@@ -149,6 +153,7 @@ function scoreArea(
     highlights: sortedCategories,
     breakdown,
     weights,
+    nudgedCategories,
   };
 }
 
@@ -162,11 +167,11 @@ export function scoreAndRankAreas(
   // 2. Apply hard filters with reasons
   const { passed, rejected } = applyHardFiltersWithReasons(normalized, state);
 
-  // 3. Extract weights
-  const weights = extractWeights(state);
+  // 3. Extract weights (includes profile nudges)
+  const { weights, nudgedCategories } = extractWeights(state);
 
   // 4. Score each area
-  const scored = passed.map((area) => scoreArea(area, weights, state));
+  const scored = passed.map((area) => scoreArea(area, weights, nudgedCategories, state));
 
   // 5. Sort by score descending
   scored.sort((a, b) => b.score - a.score);

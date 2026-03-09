@@ -1,6 +1,17 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { GET } from '@/app/api/geocode/route';
 import { NextRequest } from 'next/server';
+
+const { mockCheck } = vi.hoisted(() => ({
+  mockCheck: vi.fn().mockReturnValue(true),
+}));
+
+vi.mock('@/lib/rate-limit', () => ({
+  RateLimiter: class {
+    check = mockCheck;
+  },
+}));
+
+const { GET } = await import('@/app/api/geocode/route');
 
 const mockFetch = vi.fn();
 global.fetch = mockFetch;
@@ -8,6 +19,7 @@ global.fetch = mockFetch;
 describe('GET /api/geocode', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mockCheck.mockReturnValue(true);
   });
 
   it('returns 400 if q is missing', async () => {
@@ -53,5 +65,17 @@ describe('GET /api/geocode', () => {
     
     // Fetch should only be called once due to cache
     expect(mockFetch).toHaveBeenCalledTimes(1);
+  });
+
+  it('returns 429 if rate limit is exceeded', async () => {
+    mockCheck.mockReturnValue(false);
+
+    const req = new NextRequest('http://localhost/api/geocode?q=ratelimited');
+    const res = await GET(req);
+
+    expect(res.status).toBe(429);
+    const data = await res.json();
+    expect(data.error).toContain('Too many requests');
+    expect(mockFetch).not.toHaveBeenCalled();
   });
 });

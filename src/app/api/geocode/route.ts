@@ -1,9 +1,19 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { RateLimiter } from '@/lib/rate-limit';
 
+const limiter = new RateLimiter({ maxRequests: 20, windowMs: 60_000 });
 const cache = new Map<string, { data: unknown; timestamp: number }>();
 const CACHE_TTL = 24 * 60 * 60 * 1000; // 24 hours
 
 export async function GET(request: NextRequest) {
+  const ip = request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || 'unknown';
+  if (!limiter.check(ip)) {
+    return NextResponse.json(
+      { error: 'Too many requests. Please try again later.' },
+      { status: 429 }
+    );
+  }
+
   const q = request.nextUrl.searchParams.get('q');
   if (!q) {
     return NextResponse.json({ error: 'Missing query' }, { status: 400 });

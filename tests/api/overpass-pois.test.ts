@@ -1,6 +1,17 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { GET } from '@/app/api/overpass/pois/route';
 import { NextRequest } from 'next/server';
+
+const { mockCheck } = vi.hoisted(() => ({
+  mockCheck: vi.fn().mockReturnValue(true),
+}));
+
+vi.mock('@/lib/rate-limit', () => ({
+  RateLimiter: class {
+    check = mockCheck;
+  },
+}));
+
+const { GET } = await import('@/app/api/overpass/pois/route');
 
 const mockFetch = vi.fn();
 global.fetch = mockFetch;
@@ -8,6 +19,7 @@ global.fetch = mockFetch;
 describe('GET /api/overpass/pois', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mockCheck.mockReturnValue(true);
   });
 
   it('returns 400 if lat or lng is missing', async () => {
@@ -69,5 +81,17 @@ describe('GET /api/overpass/pois', () => {
     
     expect(res2.status).toBe(200);
     expect(mockFetch).toHaveBeenCalledTimes(1); // second request hits cache
+  });
+
+  it('returns 429 if rate limit is exceeded', async () => {
+    mockCheck.mockReturnValue(false);
+
+    const req = new NextRequest('http://localhost/api/overpass/pois?lat=51.5&lng=-0.3');
+    const res = await GET(req);
+
+    expect(res.status).toBe(429);
+    const data = await res.json();
+    expect(data.error).toContain('Too many requests');
+    expect(mockFetch).not.toHaveBeenCalled();
   });
 });

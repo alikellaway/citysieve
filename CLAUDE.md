@@ -114,6 +114,7 @@ Use sub-agents to keep the main context clean and speed up focused work. Prefer 
 | `analytics-analyst` | Load skill when asked to query or analyse usage data | Querying `SurveyAnalytics`, writing analysis scripts, investigating area popularity or preference trends |
 | `restart-local-server` | "restart the server" / "bounce the server" | Kill the process on port 3000 and restart `npm run dev` locally — **not for production** |
 | `boot-and-browse` | "boot the server" / "start the app" | Boot the local server if not running, then open browser to `localhost:3000` |
+| `run-tests` | "run the tests" / "run unit tests" / "check if tests pass" | Run Vitest unit/API tests, optionally Playwright e2e. Includes test conventions, directory layout, and patterns for writing new tests |
 | `tools-and-research` | Mention "external skills" or load skill | Access the global skills repository in `tools_and_research` |
 
 ## Session Round-up

@@ -16,30 +16,30 @@ describe('weights logic', () => {
         ...initialState,
         family: { ...initialState.family, childrenStatus: 'no' }
       };
-      expect(extractWeights(stateNoChildren).schools).toBe(0);
+      expect(extractWeights(stateNoChildren).weights.schools).toBe(0);
 
       const stateNotImportant: SurveyState = {
         ...initialState,
         family: { ...initialState.family, childrenStatus: 'school_age', schoolPriority: 'not_important' }
       };
-      expect(extractWeights(stateNotImportant).schools).toBe(0.1);
+      expect(extractWeights(stateNotImportant).weights.schools).toBe(0.1);
 
       const stateImportant: SurveyState = {
         ...initialState,
         family: { ...initialState.family, childrenStatus: 'school_age', schoolPriority: 'primary' }
       };
-      expect(extractWeights(stateImportant).schools).toBe(0.75);
+      expect(extractWeights(stateImportant).weights.schools).toBe(0.7);
     });
 
     it('handles commute weight based on daysPerWeek', () => {
       const state5Days = { ...initialState, commute: { ...initialState.commute, daysPerWeek: 5 } };
-      expect(extractWeights(state5Days).commute).toBe(1.0);
+      expect(extractWeights(state5Days).weights.commute).toBe(1.0);
 
       const state3Days = { ...initialState, commute: { ...initialState.commute, daysPerWeek: 3 } };
-      expect(extractWeights(state3Days).commute).toBe(0.6);
+      expect(extractWeights(state3Days).weights.commute).toBe(0.6);
 
       const state0Days = { ...initialState, commute: { ...initialState.commute, daysPerWeek: 0 } };
-      expect(extractWeights(state0Days).commute).toBe(0);
+      expect(extractWeights(state0Days).weights.commute).toBe(0);
     });
 
     it('extracts all likert weights correctly', () => {
@@ -72,7 +72,7 @@ describe('weights logic', () => {
         }
       };
 
-      const weights = extractWeights(testState);
+      const { weights } = extractWeights(testState);
       expect(weights).toMatchObject({
         supermarkets: 1,
         highStreet: 0.75,

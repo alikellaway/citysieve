@@ -46,6 +46,61 @@ describe('POST /api/analytics/survey-run', () => {
     expect(res.status).toBe(400);
   });
 
+  it('returns 400 if surveyState is a primitive (not a record)', async () => {
+    const req = new NextRequest('http://localhost/api/analytics/survey-run', {
+      method: 'POST',
+      body: JSON.stringify({ ...validPayload, surveyState: 'not-an-object' }),
+    });
+    const res = await POST(req);
+    expect(res.status).toBe(400);
+  });
+
+  it('returns 400 if surveyState is an array', async () => {
+    const req = new NextRequest('http://localhost/api/analytics/survey-run', {
+      method: 'POST',
+      body: JSON.stringify({ ...validPayload, surveyState: [1, 2, 3] }),
+    });
+    const res = await POST(req);
+    expect(res.status).toBe(400);
+  });
+
+  it('returns 400 if topResults exceeds 50 items', async () => {
+    const manyResults = Array.from({ length: 51 }, (_, i) => ({
+      name: `Area ${i}`,
+      score: 50,
+      coordinates: { lat: 51.5, lng: -0.1 },
+      highlights: [],
+    }));
+    const req = new NextRequest('http://localhost/api/analytics/survey-run', {
+      method: 'POST',
+      body: JSON.stringify({ ...validPayload, topResults: manyResults }),
+    });
+    const res = await POST(req);
+    expect(res.status).toBe(400);
+  });
+
+  it('returns 400 if statistical counts are negative', async () => {
+    const req = new NextRequest('http://localhost/api/analytics/survey-run', {
+      method: 'POST',
+      body: JSON.stringify({ ...validPayload, rejectedCount: -5 }),
+    });
+    const res = await POST(req);
+    expect(res.status).toBe(400);
+  });
+
+  it('returns 413 if survey state exceeds 64KB', async () => {
+    (auth as any).mockResolvedValueOnce(null);
+    const bigState = { data: 'x'.repeat(70 * 1024) };
+    const req = new NextRequest('http://localhost/api/analytics/survey-run', {
+      method: 'POST',
+      body: JSON.stringify({ ...validPayload, surveyState: bigState }),
+    });
+    const res = await POST(req);
+    expect(res.status).toBe(413);
+    const data = await res.json();
+    expect(data.error).toContain('too large');
+  });
+
   it('sanitizes state and results before saving', async () => {
     (auth as any).mockResolvedValueOnce(null); // anonymous user
     (prisma.surveyAnalytics.create as any).mockResolvedValueOnce({});

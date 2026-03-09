@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { timingSafeEqual } from 'crypto';
 import { prisma } from '@/lib/db';
 
 const MAX_LIMIT = 1000;
@@ -11,7 +12,10 @@ function isAuthorized(request: NextRequest): boolean {
   const authHeader = request.headers.get('Authorization');
   if (!authHeader?.startsWith('Bearer ')) return false;
 
-  return authHeader.slice(7) === apiKey;
+  const supplied = authHeader.slice(7);
+  if (supplied.length !== apiKey.length) return false;
+
+  return timingSafeEqual(Buffer.from(supplied), Buffer.from(apiKey));
 }
 
 export async function GET(request: NextRequest) {

@@ -36,7 +36,8 @@ function ScoreBreakdown({
 }: {
   result: ScoredArea;
 }) {
-  const { breakdown, weights } = result;
+  const { breakdown, weights, nudgedCategories } = result;
+  const nudgedSet = new Set(nudgedCategories);
 
   const activeDimensions = Object.keys(breakdown)
     .filter((key) => (weights[key as keyof typeof weights] ?? 0) > 0)
@@ -44,16 +45,28 @@ function ScoreBreakdown({
 
   if (activeDimensions.length === 0) return null;
 
+  const hasNudges = activeDimensions.some((key) => nudgedSet.has(key));
+
   return (
     <div className="pt-2 pb-1 space-y-1.5">
       {activeDimensions.map((key) => {
         const score = breakdown[key];
-        const weight = weights[key as keyof typeof weights] ?? 0;
+        const isNudged = nudgedSet.has(key);
         const label = HIGHLIGHT_LABELS[key] ?? key;
 
         return (
           <div key={key} className="flex items-center gap-2">
-            <span className="w-24 truncate text-xs text-muted-foreground">{label}</span>
+            <div className="w-24 flex items-center gap-0.5 min-w-0">
+              <span className="truncate text-xs text-muted-foreground">{label}</span>
+              {isNudged && (
+                <span
+                  className="shrink-0 text-[9px] text-primary/60 leading-none"
+                  title="Adjusted for your profile"
+                >
+                  ◆
+                </span>
+              )}
+            </div>
             <div className="flex-1 h-2 rounded-full bg-muted overflow-hidden">
               <div
                 className="h-full bg-primary transition-all"
@@ -64,6 +77,11 @@ function ScoreBreakdown({
           </div>
         );
       })}
+      {hasNudges && (
+        <p className="pt-1 text-[10px] text-muted-foreground/70">
+          ◆ Adjusted for your profile
+        </p>
+      )}
     </div>
   );
 }

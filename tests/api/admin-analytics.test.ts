@@ -32,6 +32,23 @@ describe('GET /api/admin/analytics', () => {
     expect(res.status).toBe(401);
   });
 
+  it('returns 401 if key has different length (timing-safe early exit)', async () => {
+    const req = new NextRequest('http://localhost/api/admin/analytics', {
+      headers: { Authorization: 'Bearer short' },
+    });
+    const res = await GET(req);
+    expect(res.status).toBe(401);
+  });
+
+  it('returns 401 if key has same length but wrong value', async () => {
+    // Same length as 'test-secret-key' (15 chars)
+    const req = new NextRequest('http://localhost/api/admin/analytics', {
+      headers: { Authorization: 'Bearer xxxx-secret-key' },
+    });
+    const res = await GET(req);
+    expect(res.status).toBe(401);
+  });
+
   it('returns 401 if API key env var is not set', async () => {
     delete process.env.ANALYTICS_API_KEY;
     const req = new NextRequest('http://localhost/api/admin/analytics', {

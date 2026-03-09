@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { RateLimiter } from '@/lib/rate-limit';
 
+const limiter = new RateLimiter({ maxRequests: 30, windowMs: 60_000 });
 const cache = new Map<string, { data: unknown; timestamp: number }>();
 const CACHE_TTL = 24 * 60 * 60 * 1000; // 24 hours
 
@@ -8,6 +10,14 @@ function roundCoord(n: number): number {
 }
 
 export async function GET(request: NextRequest) {
+  const ip = request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || 'unknown';
+  if (!limiter.check(ip)) {
+    return NextResponse.json(
+      { error: 'Too many requests. Please try again later.' },
+      { status: 429 }
+    );
+  }
+
   const lat = parseFloat(request.nextUrl.searchParams.get('lat') || '');
   const lng = parseFloat(request.nextUrl.searchParams.get('lng') || '');
   const radius = parseInt(request.nextUrl.searchParams.get('radius') || '1000');

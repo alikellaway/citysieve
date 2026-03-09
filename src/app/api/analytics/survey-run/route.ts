@@ -3,26 +3,30 @@ import { z } from 'zod';
 import { prisma } from '@/lib/db';
 import { auth } from '@/lib/auth';
 
+/** Reject payloads whose JSON-serialised survey state exceeds this byte limit. */
+const MAX_STATE_BYTES = 64 * 1024; // 64 KB
+const MAX_TOP_RESULTS = 50;
+
 const topResultSchema = z.object({
-  name: z.string(),
-  outcode: z.string().optional(),
+  name: z.string().max(200),
+  outcode: z.string().max(10).optional(),
   score: z.number(),
   coordinates: z.object({
     lat: z.number(),
     lng: z.number(),
   }),
-  highlights: z.array(z.string()),
+  highlights: z.array(z.string().max(200)).max(20),
   commuteEstimate: z.number().optional(),
 });
 
 const analyticsSchema = z.object({
   surveyMode: z.enum(['full', 'quick']).nullable(),
-  surveyState: z.any(),
-  topResults: z.array(topResultSchema),
-  totalCandidates: z.number(),
-  rejectedCount: z.number(),
-  passedCount: z.number(),
-  radiusKm: z.number(),
+  surveyState: z.record(z.unknown()),
+  topResults: z.array(topResultSchema).max(MAX_TOP_RESULTS),
+  totalCandidates: z.number().int().nonnegative(),
+  rejectedCount: z.number().int().nonnegative(),
+  passedCount: z.number().int().nonnegative(),
+  radiusKm: z.number().nonnegative(),
 });
 
 export async function POST(request: NextRequest) {
@@ -44,12 +48,18 @@ export async function POST(request: NextRequest) {
       radiusKm,
     } = result.data;
 
+    // Guard against oversized state blobs before any processing
+    const stateStr = JSON.stringify(surveyState);
+    if (stateStr.length > MAX_STATE_BYTES) {
+      return NextResponse.json({ error: 'Survey state too large' }, { status: 413 });
+    }
+
     // Optional: try to get user id, but don't fail if anonymous
     const session = await auth();
     const userId = session?.user?.id || null;
 
     // Sanitize survey state (remove location labels to protect privacy)
-    const sanitizedState = JSON.parse(JSON.stringify(surveyState));
+    const sanitizedState = JSON.parse(stateStr);
     if (sanitizedState?.commute?.workLocation) {
       delete sanitizedState.commute.workLocation.label;
       // Round coordinates to ~100m precision
