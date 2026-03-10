@@ -83,3 +83,28 @@ model SurveyAnalytics {
   passedCount     Int
   radiusKm        Int
 }
+
+model AreaCentroid {
+  id      String @id @default(cuid())
+  type    String // e.g. "outcode"
+  name    String // e.g. "M4 5"
+  outcode String
+  lat     Float
+  lng     Float
+
+  @@index([lat, lng])
+  @@index([outcode])
+}
+
+model School {
+  id           Int     @id @default(autoincrement())
+  urn          String  @unique
+  name         String
+  lat          Float
+  lng          Float
+  ofstedRating Int?    // 1=Outstanding, 2=Good, 3=Requires improvement, 4=Inadequate, null=unrated
+  phase        String? // Primary, Secondary, etc.
+
+  @@index([lat, lng])
+}
+

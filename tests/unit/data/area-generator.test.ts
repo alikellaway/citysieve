@@ -1,32 +1,35 @@
-import { describe, it, expect } from 'vitest';
-import { generateCandidateAreas } from '@/lib/data/area-generator';
+import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { fetchCandidateAreas } from '@/lib/data/area-generator';
 
 describe('area-generator logic', () => {
   const london = { label: 'London', lat: 51.5, lng: -0.1 };
 
-  it('generates a single point if radius is 0', () => {
-    const areas = generateCandidateAreas(london, 0, 2);
-    expect(areas.length).toBe(1);
-    expect(areas[0].lat).toBeCloseTo(51.5, 3);
-    expect(areas[0].lng).toBeCloseTo(-0.1, 3);
+  beforeEach(() => {
+    global.fetch = vi.fn();
   });
 
-  it('generates multiple points within radius', () => {
-    const radiusKm = 5;
-    const areas = generateCandidateAreas(london, radiusKm, 2);
+  it('fetches candidate areas from the API', async () => {
+    const mockData = [
+      { id: 'outcode_SW1A', name: 'SW1A', lat: 51.5, lng: -0.1, outcode: 'SW1A' }
+    ];
     
-    expect(areas.length).toBeGreaterThan(1);
-    
-    // Check all generated points are within the expected bounds
-    const maxLatDiff = (radiusKm / 111) * 1.1; // adding 10% tolerance for grid edge
-    const maxLngDiff = (radiusKm / (111 * Math.cos(london.lat * Math.PI / 180))) * 1.1;
-    
-    for (const area of areas) {
-      expect(Math.abs(area.lat - london.lat)).toBeLessThanOrEqual(maxLatDiff);
-      expect(Math.abs(area.lng - london.lng)).toBeLessThanOrEqual(maxLngDiff);
-      
-      // Check ID format
-      expect(area.id).toMatch(/^area_\d+\.\d+_-?\d+\.\d+$/);
-    }
+    (global.fetch as any).mockResolvedValueOnce({
+      ok: true,
+      json: async () => mockData
+    });
+
+    const areas = await fetchCandidateAreas(london, 5);
+    expect(areas.length).toBe(1);
+    expect(areas[0].lat).toBeCloseTo(51.5, 3);
+    expect(areas[0].outcode).toBe('SW1A');
+    expect(global.fetch).toHaveBeenCalledWith('/api/candidates?lat=51.5&lng=-0.1&radius=5');
+  });
+
+  it('throws an error if the API fails', async () => {
+    (global.fetch as any).mockResolvedValueOnce({
+      ok: false
+    });
+
+    await expect(fetchCandidateAreas(london, 5)).rejects.toThrow('Failed to fetch candidate areas from DB');
   });
 });

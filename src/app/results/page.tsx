@@ -4,12 +4,12 @@ import { useEffect, useState, useCallback, useRef } from 'react';
 import React from 'react';
 import dynamic from 'next/dynamic';
 import Link from 'next/link';
-import Image from 'next/image';
+
 import { useRouter } from 'next/navigation';
 import { useSession } from 'next-auth/react';
 import { useSurvey } from '@/hooks/useSurvey';
-import { generateCandidateAreas, type CandidateArea } from '@/lib/data/area-generator';
-import { getPostcodeDistrict, filterValidCandidates } from '@/lib/data/postcode';
+import { fetchCandidateAreas, type CandidateArea } from '@/lib/data/area-generator';
+
 import { bestCommuteTime, commuteBreakdown, haversineDistance, getEffectiveCommuteModes } from '@/lib/scoring/commute';
 import { scoreAndRankAreas, getFilterStatus, type AreaProfile, type ScoredArea, type ScoringResult } from '@/lib/scoring/engine';
 import { ResultCard } from '@/components/results/ResultCard';
@@ -111,46 +111,32 @@ const LoadingMap = dynamic(
   { ssr: false, loading: () => <div className="h-[calc(100vh-180px)] w-full animate-pulse bg-muted" /> }
 );
 
-/**
- * Generates candidate areas for a given centre and radius, using a smart density
- * adjustment to compensate when a large portion of the grid falls over the sea.
- *
- * Strategy:
- * 1. Generate a standard 3km-spaced grid and filter non-UK-land points.
- * 2. If fewer than 100 valid points remain (≥37% lost to sea), the land ratio is
- *    used to calculate a denser spacing: newSpacing = 3 * sqrt(landRatio).
- *    This is bounded to [1.8, 2.5] km to avoid overloading Overpass / postcodes.io.
- * 3. Regenerate and re-filter with the denser spacing.
- */
 async function generateValidCandidates(
   centre: GeoLocation,
   radiusKm: number
 ): Promise<import('@/lib/data/area-generator').CandidateArea[]> {
-  const STANDARD_SPACING = 3;
-  const MINIMUM_ACCEPTABLE = 100;
-
-  const rawCandidates = generateCandidateAreas(centre, radiusKm, STANDARD_SPACING);
-  const validCandidates = await filterValidCandidates(rawCandidates);
-
-  if (validCandidates.length >= MINIMUM_ACCEPTABLE) {
-    return validCandidates;
-  }
-
-  // Too many points lost to the sea  -  increase density proportionally.
-  const landRatio = rawCandidates.length > 0
-    ? validCandidates.length / rawCandidates.length
-    : 1;
-  const rawSpacing = STANDARD_SPACING * Math.sqrt(landRatio);
-  const denseSpacing = Math.max(1.8, Math.min(rawSpacing, 2.5));
-
-  const denseCandidates = generateCandidateAreas(centre, radiusKm, denseSpacing);
-  return filterValidCandidates(denseCandidates);
+  return fetchCandidateAreas(centre, radiusKm);
 }
 
-async function fetchAmenities(lat: number, lng: number): Promise<Record<string, number>> {
-  const res = await fetch(`/api/overpass?lat=${lat}&lng=${lng}&radius=1000`);
-  if (!res.ok) throw new Error('Failed to fetch amenities');
-  return res.json();
+async function fetchAreaMetrics(lat: number, lng: number) {
+  const [amenitiesRes, transitRes, schoolsRes, crimeRes] = await Promise.all([
+    fetch(`/api/overpass?lat=${lat}&lng=${lng}`),
+    fetch(`/api/transit?lat=${lat}&lng=${lng}`),
+    fetch(`/api/schools?lat=${lat}&lng=${lng}`),
+    fetch(`/api/crime?lat=${lat}&lng=${lng}`)
+  ]);
+  
+  if (!amenitiesRes.ok) throw new Error('Failed to fetch amenities');
+  
+  const amenities = await amenitiesRes.json();
+  const transit = transitRes.ok ? await transitRes.json() : { departuresPerHour: 0 };
+  const schools = schoolsRes.ok ? await schoolsRes.json() : { schoolScore: 0 };
+  const crime = crimeRes.ok ? await crimeRes.json() : { crimeScore: 0.5 };
+  
+  amenities.busStop = transit.departuresPerHour;
+  amenities.schools = schools.schoolScore;
+  
+  return { amenities, crimeScore: crime.crimeScore };
 }
 
 function classifyAreaType(distKm: number): AreaProfile['environment']['type'] {
@@ -181,6 +167,8 @@ export default function ResultsPage() {
   const [saved, setSaved] = useState(false);
   const [searchedRadiusKm, setSearchedRadiusKm] = useState(20);
   const expansionCountRef = useRef(0);
+  const searchDepthRef = useRef(0);
+  const searchedCandidateIdsRef = useRef(new Set<string>());
   const [isLoadingMore, setIsLoadingMore] = useState(false);
   const [showFullSurveyBanner, setShowFullSurveyBanner] = useState(false);
 
@@ -306,8 +294,7 @@ export default function ResultsPage() {
               };
               if (isNaN(geocodedLoc.lat) || isNaN(geocodedLoc.lng)) return;
 
-              const supplementary = generateCandidateAreas(geocodedLoc, 5, 2);
-              const validSupplementary = await filterValidCandidates(supplementary);
+              const validSupplementary = await fetchCandidateAreas(geocodedLoc, 5);
               for (const c of validSupplementary) {
                 if (!existingIds.has(c.id)) {
                   existingIds.add(c.id);
@@ -325,6 +312,9 @@ export default function ResultsPage() {
 
       setIsFiltering(false);
       setCandidates(allCandidates);
+
+      // Track all searched candidate IDs for deduplication in deeper searches
+      allCandidates.forEach(c => searchedCandidateIdsRef.current.add(c.id));
 
       const initialStatus = new Map<string, CandidateStatus>();
       allCandidates.forEach(c => initialStatus.set(c.id, 'pending'));
@@ -362,22 +352,12 @@ export default function ResultsPage() {
 
         const batchResults = await Promise.allSettled(
           batch.map(async (c) => {
-            const [amenities, postcode] = await Promise.all([
-              fetchAmenities(c.lat, c.lng),
-              getPostcodeDistrict(c.lat, c.lng),
-            ]);
+            const metrics = await fetchAreaMetrics(c.lat, c.lng);
+            const amenities = metrics.amenities;
             const distFromCentre = haversineDistance(centre.lat, centre.lng, c.lat, c.lng);
 
-            let name: string;
-            let outcode: string | undefined;
-            if (postcode) {
-              name = postcode.placeName
-                ? `${postcode.placeName}, ${postcode.outcode}`
-                : postcode.outcode;
-              outcode = postcode.outcode;
-            } else {
-              name = `Area near [${c.lat.toFixed(4)}, ${c.lng.toFixed(4)}]`;
-            }
+            const name = c.name;
+            const outcode = c.outcode;
 
             const profile: AreaProfile = {
               id: c.id,
@@ -388,11 +368,12 @@ export default function ResultsPage() {
               normalizedAmenities: {},
               transport: {
                 trainStationProximity: amenities.trainStation > 0 ? 1 : 0,
-                busFrequency: Math.min(amenities.busStop / 10, 1),
+                busFrequency: amenities.busStop,
               },
               environment: {
                 type: classifyAreaType(distFromCentre),
                 greenSpaceCoverage: Math.min((amenities.parksGreenSpaces || 0) / 5, 1),
+                peaceAndQuietScore: metrics.crimeScore,
               },
             };
 
@@ -565,21 +546,13 @@ export default function ResultsPage() {
     setExpandDoneCount(0);
     setExpandCurrentPhrase(`Scanning ${innerKm}–${outerKm} km ring...`);
     try {
-      const STANDARD_SPACING = 3;
-      const MINIMUM_ACCEPTABLE = 100;
+      const allNew = await fetchCandidateAreas(centre, outerKm);
+      const candidates = allNew.filter(
+        (c) => haversineDistance(centre.lat, centre.lng, c.lat, c.lng) > innerKm
+      );
 
-      const ringFilter = (cs: import('@/lib/data/area-generator').CandidateArea[]) =>
-        cs.filter((c) => haversineDistance(centre.lat, centre.lng, c.lat, c.lng) > innerKm);
-
-      const rawRing = ringFilter(generateCandidateAreas(centre, outerKm, STANDARD_SPACING));
-      let candidates = await filterValidCandidates(rawRing);
-
-      if (candidates.length < MINIMUM_ACCEPTABLE) {
-        const landRatio = rawRing.length > 0 ? candidates.length / rawRing.length : 1;
-        const denseSpacing = Math.max(1.8, Math.min(STANDARD_SPACING * Math.sqrt(landRatio), 2.5));
-        const denseRing = ringFilter(generateCandidateAreas(centre, outerKm, denseSpacing));
-        candidates = await filterValidCandidates(denseRing);
-      }
+      // Track searched IDs for deduplication in deeper searches
+      candidates.forEach(c => searchedCandidateIdsRef.current.add(c.id));
 
       setExpandCandidates(candidates);
       const initialStatus = new Map<string, CandidateStatus>();
@@ -611,7 +584,8 @@ export default function ResultsPage() {
 
         const batchResults = await Promise.allSettled(
           batch.map(async (c) => {
-            const amenities = await fetchAmenities(c.lat, c.lng);
+            const metrics = await fetchAreaMetrics(c.lat, c.lng);
+            const amenities = metrics.amenities;
             const distFromCentre = haversineDistance(centre.lat, centre.lng, c.lat, c.lng);
 
             const profile: AreaProfile = {
@@ -622,11 +596,12 @@ export default function ResultsPage() {
               normalizedAmenities: {},
               transport: {
                 trainStationProximity: amenities.trainStation > 0 ? 1 : 0,
-                busFrequency: Math.min(amenities.busStop / 10, 1),
+                busFrequency: amenities.busStop,
               },
               environment: {
                 type: classifyAreaType(distFromCentre),
                 greenSpaceCoverage: Math.min((amenities.parksGreenSpaces || 0) / 5, 1),
+                peaceAndQuietScore: metrics.crimeScore,
               },
             };
 
@@ -736,6 +711,182 @@ export default function ResultsPage() {
     }
   }
 
+  async function handleSearchDeeper() {
+    const centre = centreRef.current;
+    if (!centre || isLoadingMore) return;
+
+    searchDepthRef.current += 1;
+    const depth = searchDepthRef.current;
+
+    setIsLoadingMore(true);
+    setExpandDoneCount(0);
+    setExpandCurrentPhrase(`Deeper search (pass ${depth})...`);
+    try {
+      // Deeper search is now a no-op as all centroids are returned in the first pass
+      let candidates: CandidateArea[] = [];
+
+      // Exclude any candidates already searched in previous passes
+      candidates = candidates.filter(c => !searchedCandidateIdsRef.current.has(c.id));
+
+      if (candidates.length === 0) {
+        // Nothing new to search — tell user
+        setResultRings((prev) => [
+          ...prev,
+          { label: `Deeper search (pass ${depth})`, items: [] },
+        ]);
+        return;
+      }
+
+      // Track the new candidate IDs
+      candidates.forEach(c => searchedCandidateIdsRef.current.add(c.id));
+
+      setExpandCandidates(candidates);
+      const initialStatus = new Map<string, CandidateStatus>();
+      candidates.forEach(c => initialStatus.set(c.id, 'pending'));
+      setExpandCandidateStatus(initialStatus);
+
+      const BATCH_SIZE = 4;
+      const areaProfiles: AreaProfile[] = [];
+
+      for (let i = 0; i < candidates.length; i += BATCH_SIZE) {
+        const batch = candidates.slice(i, i + BATCH_SIZE);
+
+        setExpandCandidateStatus(prev => {
+          const newStatus = new Map(prev);
+          batch.forEach(c => newStatus.set(c.id, 'checking'));
+          return newStatus;
+        });
+
+        fetch(`/api/geocode?q=${batch[0].lat},${batch[0].lng}`)
+          .then((r) => r.json())
+          .then((data: NominatimResult[]) => {
+            if (Array.isArray(data) && data.length > 0) {
+              const name = extractAreaName(data) || data[0].display_name.split(',')[0].trim();
+              setExpandCurrentAreaName(name);
+              setExpandCurrentPhrase(getNextPhrase());
+            }
+          })
+          .catch(() => {});
+
+        const batchResults = await Promise.allSettled(
+          batch.map(async (c) => {
+            const metrics = await fetchAreaMetrics(c.lat, c.lng);
+            const amenities = metrics.amenities;
+            const distFromCentre = haversineDistance(centre.lat, centre.lng, c.lat, c.lng);
+
+            const profile: AreaProfile = {
+              id: c.id,
+              name: c.name,
+              coordinates: { lat: c.lat, lng: c.lng },
+              amenities,
+              normalizedAmenities: {},
+              transport: {
+                trainStationProximity: amenities.trainStation > 0 ? 1 : 0,
+                busFrequency: amenities.busStop,
+              },
+              environment: {
+                type: classifyAreaType(distFromCentre),
+                greenSpaceCoverage: Math.min((amenities.parksGreenSpaces || 0) / 5, 1),
+                peaceAndQuietScore: metrics.crimeScore,
+              },
+            };
+
+            const effectiveModes = getEffectiveCommuteModes(state);
+            if (state.commute.workLocation && effectiveModes.length > 0) {
+              profile.commuteEstimate = bestCommuteTime(
+                c.lat,
+                c.lng,
+                state.commute.workLocation.lat,
+                state.commute.workLocation.lng,
+                effectiveModes,
+              );
+              profile.commuteBreakdown = commuteBreakdown(
+                c.lat,
+                c.lng,
+                state.commute.workLocation.lat,
+                state.commute.workLocation.lng,
+                effectiveModes,
+              );
+            }
+
+            return profile;
+          })
+        );
+
+        for (const r of batchResults) {
+          if (r.status === 'fulfilled') areaProfiles.push(r.value);
+        }
+
+        setExpandCandidateStatus(prev => {
+          const newStatus = new Map(prev);
+          batch.forEach(c => newStatus.set(c.id, 'checked'));
+          return newStatus;
+        });
+        setExpandDoneCount((i + BATCH_SIZE));
+      }
+
+      const { topResults, rejected, passedButNotTop } = scoreAndRankAreas(areaProfiles, state);
+      setRejectedAreas(rejected);
+      setPassedButNotTop(passedButNotTop);
+
+      const namedResults = await Promise.all(
+        topResults.map(async (s) => {
+          try {
+            const res = await fetch(
+              `/api/geocode?q=${s.area.coordinates.lat},${s.area.coordinates.lng}`
+            );
+            const data: NominatimResult[] = await res.json();
+
+            if (data.length > 0) {
+              let name = extractAreaName(data);
+
+              if (!name) {
+                const parts = data[0].display_name.split(',');
+                name = parts[0].trim();
+              }
+
+              const addressType = getMatchedAddressType(data[0].address);
+              if (addressType && ['city', 'town', 'city_district'].includes(addressType)) {
+                const direction = getCardinalDirection(centre, s.area.coordinates);
+                if (direction) {
+                  name = `${direction} ${name}`;
+                }
+              }
+
+              return { ...s, area: { ...s.area, name } };
+            }
+          } catch {
+            // Keep the generated name
+          }
+          return s;
+        })
+      );
+
+      const label = `Deeper search (pass ${depth})`;
+      setResultRings((prev) => {
+        const newRings = [...prev, { label, items: namedResults }];
+        try {
+          sessionStorage.setItem('citysieve_results_cache', JSON.stringify({
+            state,
+            resultRings: newRings,
+            rejectedAreas,
+            passedButNotTop,
+            searchedRadiusKm,
+            mapCentre: centre
+          }));
+        } catch (e) {
+          // ignore
+        }
+        return newRings;
+      });
+    } finally {
+      setIsLoadingMore(false);
+      setExpandCandidates([]);
+      setExpandCandidateStatus(new Map());
+      setExpandDoneCount(0);
+    }
+  }
+
   function handleMarkerClick(index: number) {
     setActiveIndex(index);
     cardRefs.current[index]?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
@@ -824,22 +975,6 @@ export default function ResultsPage() {
           {allResults.length === 0 ? (
             <Card>
               <CardContent className="py-8">
-                <div className="mb-6 flex justify-center w-full">
-                  <Image 
-                    src="/illustration-mono-light.png" 
-                    alt="No matches found" 
-                    width={200} 
-                    height={266} 
-                    className="h-32 md:h-48 w-auto object-contain dark:hidden opacity-80"
-                  />
-                  <Image 
-                    src="/illustration-mono-dark.png" 
-                    alt="No matches found" 
-                    width={200} 
-                    height={266} 
-                    className="h-32 md:h-48 w-auto object-contain hidden dark:block opacity-80"
-                  />
-                </div>
                 <div className="text-center mb-6 max-w-md mx-auto">
                   <p className="text-xl font-medium">No matching areas found</p>
                   <p className="mt-2 text-sm text-muted-foreground">
@@ -887,6 +1022,7 @@ export default function ResultsPage() {
                   <p className="text-xs text-muted-foreground">
                     Searches up to {searchedRadiusKm + 20} km from your centre
                   </p>
+                  
                   <Button
                     variant="outline"
                     onClick={() =>
@@ -1010,6 +1146,7 @@ export default function ResultsPage() {
                     ? `Searching ${searchedRadiusKm}–${searchedRadiusKm + 20} km...`
                     : `Search further afield (${searchedRadiusKm}–${searchedRadiusKm + 20} km)`}
                 </Button>
+                
 
                 {session && (
                   <Button variant="outline" onClick={handleSave} disabled={saved}>

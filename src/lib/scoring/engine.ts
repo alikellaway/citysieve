@@ -18,6 +18,7 @@ export interface AreaProfile {
   environment: {
     type: 'city_centre' | 'inner_suburb' | 'outer_suburb' | 'town' | 'rural';
     greenSpaceCoverage: number;
+    peaceAndQuietScore: number;
   };
   commuteEstimate?: number;
   commuteBreakdown?: Partial<Record<CommuteMode, number>>;
@@ -87,7 +88,7 @@ function scoreArea(
     ['schools', weights.schools, area.normalizedAmenities.schools || 0],
     ['publicTransport', weights.publicTransport, area.transport.busFrequency],
     ['trainStation', weights.trainStation, area.transport.trainStationProximity],
-    ['peaceAndQuiet', weights.peaceAndQuiet, area.environment.type === 'rural' || area.environment.type === 'town' ? 0.8 : area.environment.type === 'outer_suburb' ? 0.6 : 0.3],
+    ['peaceAndQuiet', weights.peaceAndQuiet, area.environment.peaceAndQuietScore],
     ['broadband', weights.broadband,
       area.environment.type === 'city_centre' || area.environment.type === 'inner_suburb' ? 1.0 :
       area.environment.type === 'outer_suburb' || area.environment.type === 'town' ? 0.7 : 0.3

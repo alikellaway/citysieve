@@ -6,6 +6,13 @@ const limiter = new RateLimiter({ maxRequests: 30, windowMs: 60_000 });
 const cache = new Map<string, { data: unknown; timestamp: number }>();
 const CACHE_TTL = 24 * 60 * 60 * 1000;
 
+const OVERPASS_ENDPOINTS = [
+  'https://overpass-api.de/api/interpreter',
+  'https://overpass.kumi.systems/api/interpreter',
+  'https://overpass.openstreetmap.fr/api/interpreter',
+];
+const FETCH_TIMEOUT = 15000;
+
 function roundCoord(n: number): number {
   return Math.round(n * 200) / 200;
 }
@@ -46,6 +53,42 @@ function getTypeLabel(tags: Record<string, string>): string {
   return 'Point of Interest';
 }
 
+async function fetchWithTimeout(url: string, options: RequestInit): Promise<Response> {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), FETCH_TIMEOUT);
+  try {
+    return await fetch(url, { ...options, signal: controller.signal });
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+async function fetchFromOverpass(query: string, endpointIndex = 0): Promise<Response> {
+  if (endpointIndex >= OVERPASS_ENDPOINTS.length) {
+    throw new Error('All Overpass endpoints failed');
+  }
+  const endpoint = OVERPASS_ENDPOINTS[endpointIndex];
+  try {
+    const res = await fetchWithTimeout(endpoint, {
+      method: 'POST',
+      body: `data=${encodeURIComponent(query)}`,
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    });
+    // Retry on rate limiting or server errors
+    if (!res.ok && endpointIndex < OVERPASS_ENDPOINTS.length - 1) {
+      await new Promise((r) => setTimeout(r, 1000 * (endpointIndex + 1)));
+      return fetchFromOverpass(query, endpointIndex + 1);
+    }
+    return res;
+  } catch {
+    if (endpointIndex < OVERPASS_ENDPOINTS.length - 1) {
+      await new Promise((r) => setTimeout(r, 1000 * (endpointIndex + 1)));
+      return fetchFromOverpass(query, endpointIndex + 1);
+    }
+    throw new Error('All Overpass endpoints failed');
+  }
+}
+
 export async function GET(request: NextRequest) {
   const ip = request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || 'unknown';
   if (!limiter.check(ip)) {
@@ -74,47 +117,64 @@ export async function GET(request: NextRequest) {
 
   const query = `[out:json][timeout:30];
 (
-  node["shop"="supermarket"](around:${radius},${lat},${lng});
-  node["shop"="convenience"](around:${radius},${lat},${lng});
-  node["amenity"="pub"](around:${radius},${lat},${lng});
-  node["amenity"="bar"](around:${radius},${lat},${lng});
-  node["amenity"="restaurant"](around:${radius},${lat},${lng});
-  node["amenity"="cafe"](around:${radius},${lat},${lng});
-  node["leisure"="park"](around:${radius},${lat},${lng});
-  node["leisure"="garden"](around:${radius},${lat},${lng});
-  node["leisure"="fitness_centre"](around:${radius},${lat},${lng});
-  node["leisure"="sports_centre"](around:${radius},${lat},${lng});
-  node["amenity"="pharmacy"](around:${radius},${lat},${lng});
-  node["amenity"="hospital"](around:${radius},${lat},${lng});
-  node["amenity"="doctors"](around:${radius},${lat},${lng});
-  node["amenity"="library"](around:${radius},${lat},${lng});
-  node["amenity"="theatre"](around:${radius},${lat},${lng});
-  node["amenity"="cinema"](around:${radius},${lat},${lng});
-  node["railway"="station"](around:${radius},${lat},${lng});
-  node["railway"="halt"](around:${radius},${lat},${lng});
-  node["highway"="bus_stop"](around:${radius},${lat},${lng});
+  nwr["shop"="supermarket"](around:${radius},${lat},${lng});
+  nwr["shop"="convenience"](around:${radius},${lat},${lng});
+  nwr["amenity"="pub"](around:${radius},${lat},${lng});
+  nwr["amenity"="bar"](around:${radius},${lat},${lng});
+  nwr["amenity"="restaurant"](around:${radius},${lat},${lng});
+  nwr["amenity"="cafe"](around:${radius},${lat},${lng});
+  nwr["leisure"="park"](around:${radius},${lat},${lng});
+  nwr["leisure"="garden"](around:${radius},${lat},${lng});
+  nwr["leisure"="fitness_centre"](around:${radius},${lat},${lng});
+  nwr["leisure"="sports_centre"](around:${radius},${lat},${lng});
+  nwr["amenity"="pharmacy"](around:${radius},${lat},${lng});
+  nwr["amenity"="hospital"](around:${radius},${lat},${lng});
+  nwr["amenity"="doctors"](around:${radius},${lat},${lng});
+  nwr["amenity"="library"](around:${radius},${lat},${lng});
+  nwr["amenity"="theatre"](around:${radius},${lat},${lng});
+  nwr["amenity"="cinema"](around:${radius},${lat},${lng});
+  nwr["railway"="station"](around:${radius},${lat},${lng});
+  nwr["railway"="halt"](around:${radius},${lat},${lng});
+  nwr["highway"="bus_stop"](around:${radius},${lat},${lng});
 );
-out body;`;
+out center body;`;
 
-  const res = await fetch('https://overpass-api.de/api/interpreter', {
-    method: 'POST',
-    body: `data=${encodeURIComponent(query)}`,
-    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-  });
-
-  const raw = await res.json();
+  let raw: { elements?: Array<Record<string, unknown>> };
+  try {
+    const res = await fetchFromOverpass(query);
+    if (!res.ok) {
+      return NextResponse.json(
+        { error: 'Overpass API unavailable. Please try again later.' },
+        { status: 503 }
+      );
+    }
+    raw = await res.json();
+  } catch {
+    return NextResponse.json(
+      { error: 'Failed to reach Overpass API. Please try again later.' },
+      { status: 503 }
+    );
+  }
 
   const pois: Poi[] = [];
+  const seen = new Set<number>();
   for (const el of raw.elements || []) {
-    if (el.type !== 'node' || !el.lat || !el.lon) continue;
-    const tags = el.tags || {};
+    // Nodes have lat/lon directly; ways/relations get a centroid via `out center`
+    const elLat = (el.lat as number | undefined) ?? (el.center as Record<string, number> | undefined)?.lat;
+    const elLon = (el.lon as number | undefined) ?? (el.center as Record<string, number> | undefined)?.lon;
+    if (!elLat || !elLon) continue;
+    const elId = el.id as number;
+    if (seen.has(elId)) continue;
+    seen.add(elId);
+
+    const tags = (el.tags as Record<string, string>) || {};
     const category = categorizeElement(tags);
     if (!category) continue;
 
     pois.push({
-      id: el.id,
-      lat: el.lat,
-      lng: el.lon,
+      id: elId,
+      lat: elLat,
+      lng: elLon,
       name: tags.name || getTypeLabel(tags),
       type: getTypeLabel(tags),
       category,

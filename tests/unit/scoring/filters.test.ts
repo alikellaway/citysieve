@@ -11,7 +11,7 @@ describe('filters logic', () => {
     amenities: {},
     normalizedAmenities: {},
     transport: { trainStationProximity: 0, busFrequency: 0 },
-    environment: { type: 'city_centre', greenSpaceCoverage: 0 },
+    environment: { type: 'city_centre', greenSpaceCoverage: 0, peaceAndQuietScore: 0 },
   };
 
   describe('commute filter', () => {

@@ -15,7 +15,7 @@ describe('engine logic', () => {
     amenities: {},
     normalizedAmenities: {},
     transport: { trainStationProximity: 0, busFrequency: 0 },
-    environment: { type: 'city_centre', greenSpaceCoverage: 0 },
+    environment: { type: 'city_centre', greenSpaceCoverage: 0, peaceAndQuietScore: 0 },
   };
 
   describe('normalizeAmenities', () => {
@@ -99,6 +99,22 @@ describe('engine logic', () => {
       expect(rejected.length).toBe(1);
       expect(rejected[0].area.id).toBe('2');
       expect(rejected[0].reasons).toContain('commute');
+    });
+
+    it('integrates new dataset metrics (transit, routing, crime, schools) cleanly if present', () => {
+      const areas = [
+        { ...baseArea, id: '1', transitScore: 90, crimeScore: 80, schoolScore: 85 },
+        { ...baseArea, id: '2', transitScore: 20, crimeScore: 30, schoolScore: 40 },
+      ] as any;
+
+      const state = {
+        ...initialState,
+      };
+
+      // Just ensure it doesn't crash when these properties are passed in.
+      const { topResults } = scoreAndRankAreas(areas, state);
+      expect(topResults.length).toBe(2);
+      expect(topResults[0].area.id).toBe('1'); // Assuming mock gives 1 higher score due to base metrics, but this just ensures stability.
     });
   });
 });

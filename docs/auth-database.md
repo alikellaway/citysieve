@@ -41,7 +41,7 @@ Extends the NextAuth `Session` type so `session.user.id` is typed as `string`.
 
 ### Schema (`prisma/schema.prisma`)
 
-6 models:
+8 models:
 
 | Model | Purpose |
 |-------|---------|
@@ -51,6 +51,8 @@ Extends the NextAuth `Session` type so `session.user.id` is typed as `string`.
 | `VerificationToken` | Email verification (unused currently). Unique on `[identifier, token]` |
 | `SavedSurvey` | Stored survey state as JSON string. Belongs to User. Indexed on `userId` |
 | `SurveyAnalytics` | Implicit analytics record per survey run. No FK to User — `userId` is nullable (anonymous users). See `analytics-analyst` skill for query patterns |
+| `AreaCentroid` | Pre-calculated candidate points (e.g. outcodes like "M4 5"). Avoids generating candidates dynamically and ensures high-quality real locations. |
+| `School` | Seeded database of schools with their Ofsted ratings for accurate proximity scoring. |
 
 ### Database
 

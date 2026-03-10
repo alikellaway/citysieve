@@ -30,6 +30,7 @@ describe('GET /api/overpass/pois', () => {
 
   it('categorizes and labels elements correctly', async () => {
     mockFetch.mockResolvedValueOnce({
+      ok: true,
       json: async () => ({
         elements: [
           { type: 'node', id: 1, lat: 51.5, lon: -0.1, tags: { shop: 'supermarket', name: 'Tesco' } },
@@ -70,6 +71,7 @@ describe('GET /api/overpass/pois', () => {
   it('uses cache for identical requests', async () => {
     const mockResponse = { elements: [] };
     mockFetch.mockResolvedValueOnce({
+      ok: true,
       json: async () => mockResponse
     });
 

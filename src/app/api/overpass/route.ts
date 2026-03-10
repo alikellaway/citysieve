@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { RateLimiter } from '@/lib/rate-limit';
+import { getWalkingIsochrone } from '@/lib/data/routing';
+import { haversineDistance } from '@/lib/scoring/commute';
 
 const limiter = new RateLimiter({ maxRequests: 30, windowMs: 60_000 });
 const cache = new Map<string, { data: unknown; timestamp: number }>();
@@ -20,47 +22,49 @@ export async function GET(request: NextRequest) {
 
   const lat = parseFloat(request.nextUrl.searchParams.get('lat') || '');
   const lng = parseFloat(request.nextUrl.searchParams.get('lng') || '');
-  const radius = parseInt(request.nextUrl.searchParams.get('radius') || '1000');
-
+  
   if (isNaN(lat) || isNaN(lng)) {
     return NextResponse.json({ error: 'Invalid coordinates' }, { status: 400 });
   }
 
   const rlat = roundCoord(lat);
   const rlng = roundCoord(lng);
-  const cacheKey = `overpass:${rlat}:${rlng}:${radius}`;
+  const cacheKey = `overpass:${rlat}:${rlng}:poly`;
 
   const cached = cache.get(cacheKey);
   if (cached && Date.now() - cached.timestamp < CACHE_TTL) {
     return NextResponse.json(cached.data);
   }
 
+  const polygon = await getWalkingIsochrone(lat, lng);
+  const polyString = polygon.map(p => `${p[0]} ${p[1]}`).join(' ');
+
   const query = `[out:json][timeout:30];
 (
-  node["shop"="supermarket"](around:${radius},${lat},${lng});
-  node["shop"="convenience"](around:${radius},${lat},${lng});
-  node["shop"](around:${radius},${lat},${lng});
-  node["amenity"="pub"](around:${radius},${lat},${lng});
-  node["amenity"="bar"](around:${radius},${lat},${lng});
-  node["amenity"="restaurant"](around:${radius},${lat},${lng});
-  node["amenity"="cafe"](around:${radius},${lat},${lng});
-  node["leisure"="park"](around:${radius},${lat},${lng});
-  node["leisure"="garden"](around:${radius},${lat},${lng});
-  node["leisure"="fitness_centre"](around:${radius},${lat},${lng});
-  node["leisure"="sports_centre"](around:${radius},${lat},${lng});
-  node["amenity"="pharmacy"](around:${radius},${lat},${lng});
-  node["amenity"="hospital"](around:${radius},${lat},${lng});
-  node["amenity"="doctors"](around:${radius},${lat},${lng});
-  node["amenity"="library"](around:${radius},${lat},${lng});
-  node["amenity"="theatre"](around:${radius},${lat},${lng});
-  node["amenity"="cinema"](around:${radius},${lat},${lng});
-  node["amenity"="school"](around:${radius},${lat},${lng});
-  node["amenity"="kindergarten"](around:${radius},${lat},${lng});
-  node["railway"="station"](around:${radius},${lat},${lng});
-  node["railway"="halt"](around:${radius},${lat},${lng});
-  node["highway"="bus_stop"](around:${radius},${lat},${lng});
+  nwr["shop"="supermarket"](poly:"${polyString}");
+  nwr["shop"="convenience"](poly:"${polyString}");
+  nwr["shop"](poly:"${polyString}");
+  nwr["amenity"="pub"](poly:"${polyString}");
+  nwr["amenity"="bar"](poly:"${polyString}");
+  nwr["amenity"="restaurant"](poly:"${polyString}");
+  nwr["amenity"="cafe"](poly:"${polyString}");
+  nwr["leisure"="park"](poly:"${polyString}");
+  nwr["leisure"="garden"](poly:"${polyString}");
+  nwr["leisure"="fitness_centre"](poly:"${polyString}");
+  nwr["leisure"="sports_centre"](poly:"${polyString}");
+  nwr["amenity"="pharmacy"](poly:"${polyString}");
+  nwr["amenity"="hospital"](poly:"${polyString}");
+  nwr["amenity"="doctors"](poly:"${polyString}");
+  nwr["amenity"="library"](poly:"${polyString}");
+  nwr["amenity"="theatre"](poly:"${polyString}");
+  nwr["amenity"="cinema"](poly:"${polyString}");
+  nwr["amenity"="school"](poly:"${polyString}");
+  nwr["amenity"="kindergarten"](poly:"${polyString}");
+  nwr["railway"="station"](poly:"${polyString}");
+  nwr["railway"="halt"](poly:"${polyString}");
+  nwr["highway"="bus_stop"](poly:"${polyString}");
 );
-out body;`;
+out center bb body;`;
 
 const OVERPASS_ENDPOINTS = [
   'https://overpass-api.de/api/interpreter',
@@ -118,7 +122,15 @@ async function fetchWithRetry(
 }
 
   let res: Response;
-  let raw: { elements?: Array<{ tags?: Record<string, string> }> };
+  let raw: { 
+    elements?: Array<{ 
+      lat?: number; 
+      lon?: number; 
+      center?: { lat: number; lon: number }; 
+      bounds?: { minlat: number; minlon: number; maxlat: number; maxlon: number };
+      tags?: Record<string, string> 
+    }> 
+  };
   try {
     res = await fetchWithRetry(query);
     raw = await res.json();
@@ -145,18 +157,56 @@ async function fetchWithRetry(
   };
 
   for (const el of raw.elements || []) {
+    const elementLat = el.lat ?? el.center?.lat;
+    const elementLon = el.lon ?? el.center?.lon;
+    
+    if (elementLat === undefined || elementLon === undefined) continue;
+
+    const distMeters = haversineDistance(lat, lng, elementLat, elementLon) * 1000;
+    const MAX_DECAY_M = 1500;
+    const decayScore = Math.max(0, 1 - distMeters / MAX_DECAY_M);
+
+    if (decayScore <= 0) continue; // Outside practical walking range, shouldn't happen with exact isochrone but good safeguard
+
     const tags = el.tags || {};
-    if (tags.shop === 'supermarket' || tags.shop === 'convenience') counts.supermarkets++;
-    if (tags.shop) counts.highStreet++;
-    if (tags.amenity === 'pub' || tags.amenity === 'bar') counts.pubsBars++;
-    if (tags.amenity === 'restaurant' || tags.amenity === 'cafe') counts.restaurantsCafes++;
-    if (tags.leisure === 'park' || tags.leisure === 'garden') counts.parksGreenSpaces++;
-    if (tags.leisure === 'fitness_centre' || tags.leisure === 'sports_centre') counts.gymsLeisure++;
-    if (tags.amenity === 'pharmacy' || tags.amenity === 'hospital' || tags.amenity === 'doctors') counts.healthcare++;
-    if (tags.amenity === 'library' || tags.amenity === 'theatre' || tags.amenity === 'cinema') counts.librariesCulture++;
-    if (tags.amenity === 'school' || tags.amenity === 'kindergarten') counts.schools++;
-    if (tags.railway === 'station' || tags.railway === 'halt') counts.trainStation++;
-    if (tags.highway === 'bus_stop') counts.busStop++;
+    
+    let multiplier = 1.0;
+    
+    // Apply size multiplier for parks based on bounding box
+    if ((tags.leisure === 'park' || tags.leisure === 'garden') && el.bounds) {
+      const { minlat, minlon, maxlat, maxlon } = el.bounds;
+      // Approximate area in sq meters: (dLat * 111000) * (dLon * 111000)
+      const latDiff = Math.abs(maxlat - minlat) * 111000;
+      const lonDiff = Math.abs(maxlon - minlon) * 111000 * Math.cos(elementLat * Math.PI / 180);
+      const areaSqM = latDiff * lonDiff;
+      multiplier = Math.min(5, 1 + areaSqM / 10000);
+    }
+    
+    // Apply quality/brand multiplier for supermarkets
+    if (tags.shop === 'supermarket') {
+      const brand = (tags.brand || tags.name || '').toLowerCase();
+      if (brand.includes('tesco extra') || brand.includes('asda') || brand.includes('morrisons')) {
+        multiplier = 2.0;
+      } else if (brand.includes('sainsbury') || brand.includes('waitrose')) {
+        multiplier = 1.5;
+      } else if (brand.includes('aldi') || brand.includes('lidl') || brand.includes('iceland')) {
+        multiplier = 1.2;
+      }
+    }
+
+    const finalScore = decayScore * multiplier;
+
+    if (tags.shop === 'supermarket' || tags.shop === 'convenience') counts.supermarkets += finalScore;
+    if (tags.shop) counts.highStreet += finalScore;
+    if (tags.amenity === 'pub' || tags.amenity === 'bar') counts.pubsBars += finalScore;
+    if (tags.amenity === 'restaurant' || tags.amenity === 'cafe') counts.restaurantsCafes += finalScore;
+    if (tags.leisure === 'park' || tags.leisure === 'garden') counts.parksGreenSpaces += finalScore;
+    if (tags.leisure === 'fitness_centre' || tags.leisure === 'sports_centre') counts.gymsLeisure += finalScore;
+    if (tags.amenity === 'pharmacy' || tags.amenity === 'hospital' || tags.amenity === 'doctors') counts.healthcare += finalScore;
+    if (tags.amenity === 'library' || tags.amenity === 'theatre' || tags.amenity === 'cinema') counts.librariesCulture += finalScore;
+    if (tags.amenity === 'school' || tags.amenity === 'kindergarten') counts.schools += finalScore;
+    if (tags.railway === 'station' || tags.railway === 'halt') counts.trainStation += finalScore;
+    if (tags.highway === 'bus_stop') counts.busStop += finalScore;
   }
 
   cache.set(cacheKey, { data: counts, timestamp: Date.now() });

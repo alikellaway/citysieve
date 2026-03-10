@@ -26,8 +26,9 @@ Proxies amenity queries to the Overpass API.
     "healthcare": 3, "librariesCulture": 1, "trainStation": 1, "busStop": 6
   }
   ```
-- **Caching**: In-memory Map, 24h TTL, keyed by rounded coordinates (~500m precision via `Math.round(n * 200) / 200`)
-- **Rate limiting**: Returns 429 if Overpass returns non-JSON (its rate-limit signal). The results page handles this with retries.
+- **Caching**: In-memory Map, 24h TTL, keyed by rounded coordinates (~500m precision via `Math.round(n * 200) / 200`) or isochrone polygon.
+- **Features**: Includes timeout logic, uses fallback endpoints if one fails, and applies a brand-based score multiplier for supermarkets.
+- **Rate limiting**: Handled internally by cycling through endpoints (`overpass-api.de`, `kumi.systems`, `openstreetmap.fr`) and applying retries with backoff.
 
 ## GET /api/overpass/pois
 
@@ -44,7 +45,40 @@ Fetches individual amenity POIs (points of interest) for the area modal map.
   ```
 - **Categories**: `supermarkets`, `pubsBars`, `restaurantsCafes`, `parksGreenSpaces`, `gymsLeisure`, `healthcare`, `librariesCulture`, `trainStation`, `busStop`
 - **Caching**: In-memory Map, 24h TTL, same coordinate rounding as `/api/overpass`
+- **Features**: Cycles through fallback endpoints on failure.
 - **Types**: See `src/lib/poi-types.ts` for `Poi`, `AmenityCategory`, `CATEGORY_CONFIG`
+
+## GET /api/candidates
+
+Fetches candidate areas (centroids) from the database within a given radius.
+
+- **Auth**: None
+- **Query params**: `lat`, `lng`, `radius` (in km)
+- **Response**: Array of `CandidateArea` objects (`{ id, name, outcode, lat, lng }`)
+
+## GET /api/crime
+
+Fetches a peace and quiet / crime score for a coordinate.
+
+- **Auth**: None
+- **Query params**: `lat`, `lng`
+- **Response**: `{ crimeScore: 0.8 }` (0-1 where 1 is best)
+
+## GET /api/schools
+
+Fetches a schools score based on nearby schools and their Ofsted ratings.
+
+- **Auth**: None
+- **Query params**: `lat`, `lng`
+- **Response**: `{ schoolScore: 0.9 }`
+
+## GET /api/transit
+
+Fetches a transit score based on nearby departures/frequency.
+
+- **Auth**: None
+- **Query params**: `lat`, `lng`
+- **Response**: `{ departuresPerHour: 15 }`
 
 ## GET /api/auth/[...nextauth]
 ## POST /api/auth/[...nextauth]

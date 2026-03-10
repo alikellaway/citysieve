@@ -42,7 +42,7 @@ On initial load, the results page reads this cache. If the current `state` strin
 
 ## Area generation (`src/lib/data/area-generator.ts`)
 
-`generateCandidateAreas(center, radiusKm, spacingKm)` creates a hex grid of candidate points within a circle around the centre.
+`fetchCandidateAreas(center, radiusKm)` fetches candidate points within a circle around the centre from the database (`/api/candidates`). It queries pre-seeded `AreaCentroid` data.
 
 - **centre** = resolved in priority order:
   1. `state.commute.workLocation` — for non-remote users this is the geocoded workplace; for remote users this is the anchor city chosen by `resolveRegionAnchor()` (see below).
@@ -65,18 +65,9 @@ This ensures the hex grid fans out from a real populated centre rather than a ge
 - **spacingKm** = 3 (default) — but see smart density below
 - Returns `CandidateArea[]` with `{ id, name: '', lat, lng }` — name is populated later via postcode lookup
 
-### Smart density (`results/page.tsx` — `generateValidCandidates`)
+### Database-backed Candidates (`results/page.tsx` — `generateValidCandidates`)
 
-After generating the initial grid, `filterValidCandidates()` (postcodes.io bulk API, 2km radius) discards points over the sea or with no UK postcode nearby. For coastal searches (e.g., Brighton, Bournemouth), a large portion of the 20km radius may be over sea — resulting in significantly fewer viable candidates than an inland search.
-
-To compensate, `generateValidCandidates()` applies a smart density fallback:
-
-1. Generate at standard 3km spacing, run the sea filter.
-2. If fewer than 100 valid points remain (≥37% of grid was sea), compute `landRatio = valid / raw`.
-3. Calculate a denser spacing: `newSpacing = 3 × √landRatio`, clamped to `[1.8, 2.5]` km.
-4. Regenerate and re-filter with the denser spacing.
-
-This ensures coastal users receive a comparable number of scored areas to inland users, with no impact on performance for fully inland searches.
+Instead of mathematical grid generation, candidates are fetched directly from `/api/candidates`. This guarantees candidates are centered on populated areas (e.g. postcode centroids like M4 5) and completely eliminates the need to filter out points over the sea.
 
 ## Amenity fetching
 
@@ -97,7 +88,7 @@ interface AreaProfile {
   amenities: Record<string, number>;         // raw counts from Overpass
   normalizedAmenities: Record<string, number>; // 0-1 normalized across all candidates
   transport: { trainStationProximity: number; busFrequency: number };
-  environment: { type: AreaType; greenSpaceCoverage: number };
+  environment: { type: AreaType; greenSpaceCoverage: number; peaceAndQuietScore: number };
   commuteEstimate?: number;                  // minutes, best across user's selected modes
   commuteBreakdown?: Partial<Record<CommuteMode, number>>; // minutes per selected mode
 }
