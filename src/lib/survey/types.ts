@@ -63,7 +63,6 @@ export interface TransportStep {
 export interface EnvironmentStep {
   areaTypes: AreaType[];
   peaceAndQuiet: LikertValue;
-
   excludeAreas: string[];
   consideringAreas: string[];
 }

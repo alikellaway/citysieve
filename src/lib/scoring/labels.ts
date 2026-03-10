@@ -10,7 +10,6 @@ export const HIGHLIGHT_LABELS: Record<string, string> = {
   schools: 'Good schools',
   publicTransport: 'Public transport',
   trainStation: 'Train access',
-  greenSpaces: 'Green spaces',
   peaceAndQuiet: 'Peace & quiet',
   broadband: 'Fast broadband',
   commute: 'Short commute',

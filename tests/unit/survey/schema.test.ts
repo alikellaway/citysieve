@@ -108,7 +108,6 @@ describe('survey schema validation', () => {
       const valid = environmentSchema.safeParse({
         areaTypes: ['city_centre', 'rural'],
         peaceAndQuiet: 3,
-        greenSpaces: 3,
         excludeAreas: [],
         consideringAreas: [],
       });
@@ -119,7 +118,6 @@ describe('survey schema validation', () => {
       const invalid = environmentSchema.safeParse({
         areaTypes: ['space_station'],
         peaceAndQuiet: 3,
-        greenSpaces: 3,
         excludeAreas: [],
         consideringAreas: [],
       });
