@@ -67,7 +67,7 @@ export function calculatePriceScore(
     } else if (diff === 1) {
       score = 0;
     } else {
-      score = -0.1 * diff;
+      score = Math.max(-1.0, -0.1 * diff);
     }
 
     return {
@@ -89,7 +89,7 @@ export function calculatePriceScore(
     } else if (diff === 1) {
       score = 0;
     } else {
-      score = -0.1 * diff;
+      score = Math.max(-1.0, -0.1 * diff);
     }
 
     return {

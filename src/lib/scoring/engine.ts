@@ -139,7 +139,7 @@ function scoreArea(
     totalWeight += weight;
   }
 
-  const score = totalWeight > 0 ? (weightedSum / totalWeight) * 100 : 0;
+  const score = totalWeight > 0 ? Math.min(100, Math.max(0, (weightedSum / totalWeight) * 100)) : 0;
 
   // Generate highlights: top 3 scoring categories with non-zero weight
   const sortedCategories = weightEntries
