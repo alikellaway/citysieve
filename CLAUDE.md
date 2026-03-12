@@ -14,6 +14,7 @@ npm run lint            # ESLint
 npx prisma migrate dev  # Run database migrations
 npx prisma generate     # Regenerate Prisma client after schema changes
 npx prisma studio       # Database GUI
+npm run update-metrics  # Ingest CandidateMetrics in background
 ```
 
 ## Environment Variables

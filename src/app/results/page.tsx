@@ -24,7 +24,7 @@ import { formatMinutes } from '@/lib/format-duration';
 import { SiteHeader } from '@/components/layout/SiteHeader';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
-import type { GeoLocation } from '@/lib/survey/types';
+import type { GeoLocation, SurveyState } from '@/lib/survey/types';
 import type L from 'leaflet';
 
 type NominatimAddress = {
@@ -145,6 +145,58 @@ function classifyAreaType(distKm: number): AreaProfile['environment']['type'] {
   if (distKm < 15) return 'outer_suburb';
   if (distKm < 25) return 'town';
   return 'rural';
+}
+
+function processPrecomputed(
+  batch: CandidateArea[], 
+  centre: GeoLocation, 
+  state: SurveyState
+): AreaProfile[] {
+  return batch.map(c => {
+    const m = c.metrics!;
+    const amenities = {
+      supermarkets: m.supermarkets,
+      highStreet: m.highStreet,
+      pubsBars: m.pubsBars,
+      restaurantsCafes: m.restaurantsCafes,
+      parksGreenSpaces: m.parksGreenSpaces,
+      gymsLeisure: m.gymsLeisure,
+      healthcare: m.healthcare,
+      librariesCulture: m.librariesCulture,
+      schools: m.schools,
+      trainStation: m.trainStation,
+      busStop: m.busStop,
+    };
+    const distFromCentre = haversineDistance(centre.lat, centre.lng, c.lat, c.lng);
+    const profile: AreaProfile = {
+      id: c.id,
+      name: c.name,
+      outcode: c.outcode || '',
+      coordinates: { lat: c.lat, lng: c.lng },
+      amenities,
+      normalizedAmenities: {},
+      transport: {
+        trainStationProximity: amenities.trainStation > 0 ? 1 : 0,
+        busFrequency: amenities.busStop,
+      },
+      environment: {
+        type: classifyAreaType(distFromCentre),
+        greenSpaceCoverage: Math.min((amenities.parksGreenSpaces || 0) / 5, 1),
+        peaceAndQuietScore: m.crimeScore,
+      },
+    };
+
+    const effectiveModes = getEffectiveCommuteModes(state);
+    if (state.commute.workLocation && effectiveModes.length > 0) {
+      profile.commuteEstimate = bestCommuteTime(
+        c.lat, c.lng, state.commute.workLocation.lat, state.commute.workLocation.lng, effectiveModes
+      );
+      profile.commuteBreakdown = commuteBreakdown(
+        c.lat, c.lng, state.commute.workLocation.lat, state.commute.workLocation.lng, effectiveModes
+      );
+    }
+    return profile;
+  });
 }
 
 interface ResultRing {
@@ -322,16 +374,50 @@ export default function ResultsPage() {
       setDoneCount(0);
       setCurrentPhrase(getNextPhrase());
 
-      const BATCH_SIZE = 4;
+      const precomputedCandidates = allCandidates.filter(c => c.metrics);
+      const dynamicCandidates = allCandidates.filter(c => !c.metrics);
+      
       const areaProfiles: AreaProfile[] = [];
       const profileMap = new Map<string, AreaProfile>();
 
-      for (let i = 0; i < allCandidates.length; i += BATCH_SIZE) {
+      if (precomputedCandidates.length > 0) {
+        setCandidateStatus(prev => {
+          const newStatus = new Map(prev);
+          precomputedCandidates.forEach(c => newStatus.set(c.id, 'checking'));
+          return newStatus;
+        });
+
+        await new Promise(r => setTimeout(r, 400));
+
+        const precomputedProfiles = processPrecomputed(precomputedCandidates, centre, state);
+        let batchViable = 0;
+
+        precomputedProfiles.forEach((profile, idx) => {
+          const c = precomputedCandidates[idx];
+          areaProfiles.push(profile);
+          profileMap.set(c.id, profile);
+          if (getFilterStatus(profile, state) === 'checked') batchViable++;
+        });
+
+        if (batchViable > 0) setViableCount(prev => prev + batchViable);
+
+        setCandidateStatus(prev => {
+          const newStatus = new Map(prev);
+          precomputedCandidates.forEach(c => newStatus.set(c.id, 'checked'));
+          return newStatus;
+        });
+
+        setDoneCount(precomputedCandidates.length);
+      }
+
+      const BATCH_SIZE = 4;
+
+      for (let i = 0; i < dynamicCandidates.length; i += BATCH_SIZE) {
         if (skipRequestedRef.current) break;
 
-        const batch = allCandidates.slice(i, i + BATCH_SIZE);
+        const batch = dynamicCandidates.slice(i, i + BATCH_SIZE);
 
-        setActiveCandidateIndex(i);
+        setActiveCandidateIndex(precomputedCandidates.length + i);
 
         setCandidateStatus(prev => {
           const newStatus = new Map(prev);
@@ -423,7 +509,7 @@ export default function ResultsPage() {
           return newStatus;
         });
 
-        setDoneCount(Math.min(i + BATCH_SIZE, allCandidates.length));
+        setDoneCount(precomputedCandidates.length + Math.min(i + BATCH_SIZE, dynamicCandidates.length));
       }
 
       setTransitionPhase('revealing');
@@ -559,11 +645,39 @@ export default function ResultsPage() {
       candidates.forEach(c => initialStatus.set(c.id, 'pending'));
       setExpandCandidateStatus(initialStatus);
 
-      const BATCH_SIZE = 4;
+      const precomputedCandidates = candidates.filter(c => c.metrics);
+      const dynamicCandidates = candidates.filter(c => !c.metrics);
+      
       const areaProfiles: AreaProfile[] = [];
 
-      for (let i = 0; i < candidates.length; i += BATCH_SIZE) {
-        const batch = candidates.slice(i, i + BATCH_SIZE);
+      if (precomputedCandidates.length > 0) {
+        setExpandCandidateStatus(prev => {
+          const newStatus = new Map(prev);
+          precomputedCandidates.forEach(c => newStatus.set(c.id, 'checking'));
+          return newStatus;
+        });
+
+        await new Promise(r => setTimeout(r, 400));
+
+        const precomputedProfiles = processPrecomputed(precomputedCandidates, centre, state);
+        
+        precomputedProfiles.forEach(profile => {
+          areaProfiles.push(profile);
+        });
+
+        setExpandCandidateStatus(prev => {
+          const newStatus = new Map(prev);
+          precomputedCandidates.forEach(c => newStatus.set(c.id, 'checked'));
+          return newStatus;
+        });
+
+        setExpandDoneCount(precomputedCandidates.length);
+      }
+
+      const BATCH_SIZE = 4;
+
+      for (let i = 0; i < dynamicCandidates.length; i += BATCH_SIZE) {
+        const batch = dynamicCandidates.slice(i, i + BATCH_SIZE);
 
         setExpandCandidateStatus(prev => {
           const newStatus = new Map(prev);
@@ -636,7 +750,7 @@ export default function ResultsPage() {
           batch.forEach(c => newStatus.set(c.id, 'checked'));
           return newStatus;
         });
-        setExpandDoneCount((i + BATCH_SIZE));
+        setExpandDoneCount(precomputedCandidates.length + i + BATCH_SIZE);
       }
 
       const { topResults, rejected, passedButNotTop } = scoreAndRankAreas(areaProfiles, state);
@@ -745,11 +859,39 @@ export default function ResultsPage() {
       candidates.forEach(c => initialStatus.set(c.id, 'pending'));
       setExpandCandidateStatus(initialStatus);
 
-      const BATCH_SIZE = 4;
+      const precomputedCandidates = candidates.filter(c => c.metrics);
+      const dynamicCandidates = candidates.filter(c => !c.metrics);
+      
       const areaProfiles: AreaProfile[] = [];
 
-      for (let i = 0; i < candidates.length; i += BATCH_SIZE) {
-        const batch = candidates.slice(i, i + BATCH_SIZE);
+      if (precomputedCandidates.length > 0) {
+        setExpandCandidateStatus(prev => {
+          const newStatus = new Map(prev);
+          precomputedCandidates.forEach(c => newStatus.set(c.id, 'checking'));
+          return newStatus;
+        });
+
+        await new Promise(r => setTimeout(r, 400));
+
+        const precomputedProfiles = processPrecomputed(precomputedCandidates, centre, state);
+        
+        precomputedProfiles.forEach(profile => {
+          areaProfiles.push(profile);
+        });
+
+        setExpandCandidateStatus(prev => {
+          const newStatus = new Map(prev);
+          precomputedCandidates.forEach(c => newStatus.set(c.id, 'checked'));
+          return newStatus;
+        });
+
+        setExpandDoneCount(precomputedCandidates.length);
+      }
+
+      const BATCH_SIZE = 4;
+
+      for (let i = 0; i < dynamicCandidates.length; i += BATCH_SIZE) {
+        const batch = dynamicCandidates.slice(i, i + BATCH_SIZE);
 
         setExpandCandidateStatus(prev => {
           const newStatus = new Map(prev);
@@ -822,7 +964,7 @@ export default function ResultsPage() {
           batch.forEach(c => newStatus.set(c.id, 'checked'));
           return newStatus;
         });
-        setExpandDoneCount((i + BATCH_SIZE));
+        setExpandDoneCount(precomputedCandidates.length + i + BATCH_SIZE);
       }
 
       const { topResults, rejected, passedButNotTop } = scoreAndRankAreas(areaProfiles, state);

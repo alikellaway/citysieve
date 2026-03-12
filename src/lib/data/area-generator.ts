@@ -6,6 +6,20 @@ export interface CandidateArea {
   lat: number;
   lng: number;
   outcode?: string;
+  metrics?: {
+    supermarkets: number;
+    highStreet: number;
+    pubsBars: number;
+    restaurantsCafes: number;
+    parksGreenSpaces: number;
+    gymsLeisure: number;
+    healthcare: number;
+    librariesCulture: number;
+    schools: number;
+    trainStation: number;
+    busStop: number;
+    crimeScore: number;
+  } | null;
 }
 
 export async function fetchCandidateAreas(

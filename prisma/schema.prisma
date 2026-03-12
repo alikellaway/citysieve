@@ -92,6 +92,8 @@ model AreaCentroid {
   lat     Float
   lng     Float
 
+  metrics CandidateMetrics?
+
   @@index([lat, lng])
   @@index([outcode])
 }
@@ -106,5 +108,25 @@ model School {
   phase        String? // Primary, Secondary, etc.
 
   @@index([lat, lng])
+}
+
+model CandidateMetrics {
+  id               String   @id @default(cuid())
+  areaCentroidId   String   @unique
+  supermarkets     Float
+  highStreet       Float
+  pubsBars         Float
+  restaurantsCafes Float
+  parksGreenSpaces Float
+  gymsLeisure      Float
+  healthcare       Float
+  librariesCulture Float
+  schools          Float
+  trainStation     Float
+  busStop          Float
+  crimeScore       Float    @default(0.5)
+  updatedAt        DateTime @updatedAt
+
+  areaCentroid     AreaCentroid @relation(fields: [areaCentroidId], references: [id], onDelete: Cascade)
 }
 

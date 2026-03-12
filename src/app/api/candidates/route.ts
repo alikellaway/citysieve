@@ -35,12 +35,41 @@ export async function GET(request: NextRequest) {
   const minLng = lng - lngDelta;
   const maxLng = lng + lngDelta;
 
-  const candidates = await prisma.areaCentroid.findMany({
-    where: {
-      lat: { gte: minLat, lte: maxLat },
-      lng: { gte: minLng, lte: maxLng },
-    },
-  });
+  let candidates;
+  try {
+    candidates = await prisma.areaCentroid.findMany({
+      where: {
+        lat: { gte: minLat, lte: maxLat },
+        lng: { gte: minLng, lte: maxLng },
+      },
+      include: {
+        metrics: {
+          select: {
+            supermarkets: true,
+            highStreet: true,
+            pubsBars: true,
+            restaurantsCafes: true,
+            parksGreenSpaces: true,
+            gymsLeisure: true,
+            healthcare: true,
+            librariesCulture: true,
+            schools: true,
+            trainStation: true,
+            busStop: true,
+            crimeScore: true,
+          }
+        }
+      }
+    });
+  } catch (error) {
+    console.warn('Prisma error fetching candidates with metrics (table may not exist yet). Falling back to dynamic fetch:', error);
+    candidates = await prisma.areaCentroid.findMany({
+      where: {
+        lat: { gte: minLat, lte: maxLat },
+        lng: { gte: minLng, lte: maxLng },
+      },
+    });
+  }
 
   // Filter accurately using haversine
   const valid = candidates.filter(
@@ -53,6 +82,7 @@ export async function GET(request: NextRequest) {
     outcode: c.outcode,
     lat: c.lat,
     lng: c.lng,
+    metrics: (c as any).metrics || null,
   }));
 
   return NextResponse.json(results);

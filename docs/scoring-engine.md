@@ -71,9 +71,11 @@ Instead of mathematical grid generation, candidates are fetched directly from `/
 
 ## Amenity fetching
 
-Each candidate's amenities are fetched via `/api/overpass` (see [api-routes.md](./api-routes.md)).
+Each candidate's amenities are fetched via a hybrid approach:
+1. **Pre-computed Database Metrics**: The `results/page.tsx` first checks if the candidate has `metrics` attached (from the `CandidateMetrics` table). If so, it processes them instantly without any network calls, drastically reducing search times.
+2. **Dynamic Fallback (/api/overpass)**: If metrics are null or missing, it falls back to querying the external APIs via `/api/overpass`, `/api/transit`, etc.
 
-**Batch size is 4 concurrent requests**. Do not increase this — Overpass rate limits aggressively.
+**Batch size is 4 concurrent requests** for the dynamic fallback. Do not increase this — Overpass rate limits aggressively.
 
 The fetch includes retry logic (2 retries with exponential backoff for 429 responses).
 

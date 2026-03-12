@@ -50,11 +50,12 @@ Fetches individual amenity POIs (points of interest) for the area modal map.
 
 ## GET /api/candidates
 
-Fetches candidate areas (centroids) from the database within a given radius.
+Fetches candidate areas (centroids) from the database within a given radius. Also eagerly loads `metrics` from the `CandidateMetrics` table if available, enabling ultra-fast fallback scoring.
 
 - **Auth**: None
 - **Query params**: `lat`, `lng`, `radius` (in km)
-- **Response**: Array of `CandidateArea` objects (`{ id, name, outcode, lat, lng }`)
+- **Response**: Array of `CandidateArea` objects (`{ id, name, outcode, lat, lng, metrics: Object | null }`)
+- **Fallback**: If the `CandidateMetrics` table is missing (e.g. during a pending migration), the query silently catches the Prisma error and falls back to fetching centroids without metrics.
 
 ## GET /api/crime
 

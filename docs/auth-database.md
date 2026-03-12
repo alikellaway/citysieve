@@ -52,6 +52,7 @@ Extends the NextAuth `Session` type so `session.user.id` is typed as `string`.
 | `SavedSurvey` | Stored survey state as JSON string. Belongs to User. Indexed on `userId` |
 | `SurveyAnalytics` | Implicit analytics record per survey run. No FK to User — `userId` is nullable (anonymous users). See `analytics-analyst` skill for query patterns |
 | `AreaCentroid` | Pre-calculated candidate points (e.g. outcodes like "M4 5"). Avoids generating candidates dynamically and ensures high-quality real locations. |
+| `CandidateMetrics` | Pre-computed amenity and score metrics for each `AreaCentroid`. One-to-one relationship with `AreaCentroid`. Updated via background ingestion script. |
 | `School` | Seeded database of schools with their Ofsted ratings for accurate proximity scoring. |
 
 ### Database
