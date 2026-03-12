@@ -219,7 +219,6 @@ export default function ResultsPage() {
   const [saved, setSaved] = useState(false);
   const [searchedRadiusKm, setSearchedRadiusKm] = useState(20);
   const expansionCountRef = useRef(0);
-  const searchDepthRef = useRef(0);
   const searchedCandidateIdsRef = useRef(new Set<string>());
   const [isLoadingMore, setIsLoadingMore] = useState(false);
   const [showFullSurveyBanner, setShowFullSurveyBanner] = useState(false);
@@ -264,7 +263,7 @@ export default function ResultsPage() {
 
   // Filter breakdown state
   const [rejectedAreas, setRejectedAreas] = useState<ScoringResult['rejected']>([]);
-  const [passedButNotTop, setPassedButNotTop] = useState<AreaProfile[]>([]);
+  const [, setPassedButNotTop] = useState<AreaProfile[]>([]);
 
   const centreRef = useRef<GeoLocation | null>(null);
   const cardRefs = useRef<(HTMLDivElement | null)[]>([]);
@@ -306,7 +305,7 @@ export default function ResultsPage() {
           return;
         }
       }
-    } catch (e) {
+    } catch {
       // ignore parsing errors
     }
 
@@ -584,7 +583,7 @@ export default function ResultsPage() {
           searchedRadiusKm: searchedRadiusKmRef.current,
           mapCentre: { lat: centre.lat, lng: centre.lng }
         }));
-      } catch (e) {
+      } catch {
         // ignore
       }
 
@@ -615,7 +614,7 @@ export default function ResultsPage() {
       setError(err instanceof Error ? err.message : 'Something went wrong');
       setTransitionPhase('done');
     }
-  }, [state, candidateStatus, getNextPhrase, mapInstance]);
+  }, [state, getNextPhrase, mapInstance]);
 
   useEffect(() => {
     runAnalysis();
@@ -802,7 +801,7 @@ export default function ResultsPage() {
             searchedRadiusKm: outerKm,
             mapCentre: centre
           }));
-        } catch (e) {
+        } catch {
           // ignore
         }
         return newRings;
@@ -825,209 +824,6 @@ export default function ResultsPage() {
     }
   }
 
-  async function handleSearchDeeper() {
-    const centre = centreRef.current;
-    if (!centre || isLoadingMore) return;
-
-    searchDepthRef.current += 1;
-    const depth = searchDepthRef.current;
-
-    setIsLoadingMore(true);
-    setExpandDoneCount(0);
-    setExpandCurrentPhrase(`Deeper search (pass ${depth})...`);
-    try {
-      // Deeper search is now a no-op as all centroids are returned in the first pass
-      let candidates: CandidateArea[] = [];
-
-      // Exclude any candidates already searched in previous passes
-      candidates = candidates.filter(c => !searchedCandidateIdsRef.current.has(c.id));
-
-      if (candidates.length === 0) {
-        // Nothing new to search — tell user
-        setResultRings((prev) => [
-          ...prev,
-          { label: `Deeper search (pass ${depth})`, items: [] },
-        ]);
-        return;
-      }
-
-      // Track the new candidate IDs
-      candidates.forEach(c => searchedCandidateIdsRef.current.add(c.id));
-
-      setExpandCandidates(candidates);
-      const initialStatus = new Map<string, CandidateStatus>();
-      candidates.forEach(c => initialStatus.set(c.id, 'pending'));
-      setExpandCandidateStatus(initialStatus);
-
-      const precomputedCandidates = candidates.filter(c => c.metrics);
-      const dynamicCandidates = candidates.filter(c => !c.metrics);
-      
-      const areaProfiles: AreaProfile[] = [];
-
-      if (precomputedCandidates.length > 0) {
-        setExpandCandidateStatus(prev => {
-          const newStatus = new Map(prev);
-          precomputedCandidates.forEach(c => newStatus.set(c.id, 'checking'));
-          return newStatus;
-        });
-
-        await new Promise(r => setTimeout(r, 400));
-
-        const precomputedProfiles = processPrecomputed(precomputedCandidates, centre, state);
-        
-        precomputedProfiles.forEach(profile => {
-          areaProfiles.push(profile);
-        });
-
-        setExpandCandidateStatus(prev => {
-          const newStatus = new Map(prev);
-          precomputedCandidates.forEach(c => newStatus.set(c.id, 'checked'));
-          return newStatus;
-        });
-
-        setExpandDoneCount(precomputedCandidates.length);
-      }
-
-      const BATCH_SIZE = 4;
-
-      for (let i = 0; i < dynamicCandidates.length; i += BATCH_SIZE) {
-        const batch = dynamicCandidates.slice(i, i + BATCH_SIZE);
-
-        setExpandCandidateStatus(prev => {
-          const newStatus = new Map(prev);
-          batch.forEach(c => newStatus.set(c.id, 'checking'));
-          return newStatus;
-        });
-
-        fetch(`/api/geocode?q=${batch[0].lat},${batch[0].lng}`)
-          .then((r) => r.json())
-          .then((data: NominatimResult[]) => {
-            if (Array.isArray(data) && data.length > 0) {
-              const name = extractAreaName(data) || data[0].display_name.split(',')[0].trim();
-              setExpandCurrentAreaName(name);
-              setExpandCurrentPhrase(getNextPhrase());
-            }
-          })
-          .catch(() => {});
-
-        const batchResults = await Promise.allSettled(
-          batch.map(async (c) => {
-            const metrics = await fetchAreaMetrics(c.lat, c.lng);
-            const amenities = metrics.amenities;
-            const distFromCentre = haversineDistance(centre.lat, centre.lng, c.lat, c.lng);
-
-            const profile: AreaProfile = {
-              id: c.id,
-              name: c.name,
-              coordinates: { lat: c.lat, lng: c.lng },
-              amenities,
-              normalizedAmenities: {},
-              transport: {
-                trainStationProximity: amenities.trainStation > 0 ? 1 : 0,
-                busFrequency: amenities.busStop,
-              },
-              environment: {
-                type: classifyAreaType(distFromCentre),
-                greenSpaceCoverage: Math.min((amenities.parksGreenSpaces || 0) / 5, 1),
-                peaceAndQuietScore: metrics.crimeScore,
-              },
-            };
-
-            const effectiveModes = getEffectiveCommuteModes(state);
-            if (state.commute.workLocation && effectiveModes.length > 0) {
-              profile.commuteEstimate = bestCommuteTime(
-                c.lat,
-                c.lng,
-                state.commute.workLocation.lat,
-                state.commute.workLocation.lng,
-                effectiveModes,
-              );
-              profile.commuteBreakdown = commuteBreakdown(
-                c.lat,
-                c.lng,
-                state.commute.workLocation.lat,
-                state.commute.workLocation.lng,
-                effectiveModes,
-              );
-            }
-
-            return profile;
-          })
-        );
-
-        for (const r of batchResults) {
-          if (r.status === 'fulfilled') areaProfiles.push(r.value);
-        }
-
-        setExpandCandidateStatus(prev => {
-          const newStatus = new Map(prev);
-          batch.forEach(c => newStatus.set(c.id, 'checked'));
-          return newStatus;
-        });
-        setExpandDoneCount(precomputedCandidates.length + i + BATCH_SIZE);
-      }
-
-      const { topResults, rejected, passedButNotTop } = scoreAndRankAreas(areaProfiles, state);
-      setRejectedAreas(rejected);
-      setPassedButNotTop(passedButNotTop);
-
-      const namedResults = await Promise.all(
-        topResults.map(async (s) => {
-          try {
-            const res = await fetch(
-              `/api/geocode?q=${s.area.coordinates.lat},${s.area.coordinates.lng}`
-            );
-            const data: NominatimResult[] = await res.json();
-
-            if (data.length > 0) {
-              let name = extractAreaName(data);
-
-              if (!name) {
-                const parts = data[0].display_name.split(',');
-                name = parts[0].trim();
-              }
-
-              const addressType = getMatchedAddressType(data[0].address);
-              if (addressType && ['city', 'town', 'city_district'].includes(addressType)) {
-                const direction = getCardinalDirection(centre, s.area.coordinates);
-                if (direction) {
-                  name = `${direction} ${name}`;
-                }
-              }
-
-              return { ...s, area: { ...s.area, name } };
-            }
-          } catch {
-            // Keep the generated name
-          }
-          return s;
-        })
-      );
-
-      const label = `Deeper search (pass ${depth})`;
-      setResultRings((prev) => {
-        const newRings = [...prev, { label, items: namedResults }];
-        try {
-          sessionStorage.setItem('citysieve_results_cache', JSON.stringify({
-            state,
-            resultRings: newRings,
-            rejectedAreas,
-            passedButNotTop,
-            searchedRadiusKm,
-            mapCentre: centre
-          }));
-        } catch (e) {
-          // ignore
-        }
-        return newRings;
-      });
-    } finally {
-      setIsLoadingMore(false);
-      setExpandCandidates([]);
-      setExpandCandidateStatus(new Map());
-      setExpandDoneCount(0);
-    }
-  }
 
   function handleMarkerClick(index: number) {
     setActiveIndex(index);
@@ -1070,6 +866,7 @@ export default function ResultsPage() {
 
   // Determine which candidates/progress to show based on search phase
   const displayCandidates = isSearchingMore ? expandCandidates : candidates;
+  const displayCandidateStatus = isSearchingMore ? expandCandidateStatus : candidateStatus;
   const displayDoneCount = isSearchingMore ? expandDoneCount : doneCount;
   const displayCurrentAreaName = isSearchingMore ? expandCurrentAreaName : currentAreaName;
   const displayCurrentPhrase = isSearchingMore ? expandCurrentPhrase : currentPhrase;
@@ -1094,7 +891,7 @@ export default function ResultsPage() {
             onMapReady={setMapInstance}
             candidates={displayCandidates}
             activeCandidateIndex={activeCandidateIndex}
-            candidateStatus={candidateStatus}
+            candidateStatus={displayCandidateStatus}
             searchedRadiusKm={searchedRadiusKm}
             expandedRadiusKm={isSearchingMore ? searchedRadiusKm + 20 : undefined}
           />

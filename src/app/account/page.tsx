@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { useSession, signOut } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
 import { SiteHeader } from '@/components/layout/SiteHeader';
+import Image from 'next/image';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import {
@@ -94,9 +95,11 @@ export default function AccountPage() {
           </CardHeader>
           <CardContent className="flex items-center gap-4">
             {session?.user?.image && (
-              <img
+              <Image
                 src={session.user.image}
                 alt=""
+                width={56}
+                height={56}
                 className="h-14 w-14 rounded-full"
               />
             )}

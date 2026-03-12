@@ -82,7 +82,7 @@ export async function GET(request: NextRequest) {
     outcode: c.outcode,
     lat: c.lat,
     lng: c.lng,
-    metrics: (c as any).metrics || null,
+    metrics: (c as { metrics?: unknown }).metrics || null,
   }));
 
   return NextResponse.json(results);

@@ -16,7 +16,7 @@ interface SavedSurveyMeta {
 }
 
 export default function MySurveysPage() {
-  const { data: session, status } = useSession();
+  const { status } = useSession();
   const router = useRouter();
   const { loadState } = useSurvey();
   const [surveys, setSurveys] = useState<SavedSurveyMeta[]>([]);

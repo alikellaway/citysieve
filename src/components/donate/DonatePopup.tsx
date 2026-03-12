@@ -5,7 +5,6 @@ import { usePathname } from 'next/navigation';
 
 const STORAGE_KEY = 'citysieve_donate_declined';
 const ANALYSIS_RUNNING_KEY = 'citysieve_analysis_running';
-const TRIGGER_DELAY = 30000;
 
 export function DonatePopup() {
   const [show, setShow] = useState(false);

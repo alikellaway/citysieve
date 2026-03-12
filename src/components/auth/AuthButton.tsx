@@ -2,6 +2,7 @@
 
 import { useSession, signIn, signOut } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
+import Image from 'next/image';
 import { Button } from '@/components/ui/button';
 import {
   DropdownMenu,
@@ -29,9 +30,11 @@ export function AuthButton() {
           <DropdownMenuTrigger asChild>
             <button className="rounded-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2">
               {session.user.image ? (
-                <img
+                <Image
                   src={session.user.image}
                   alt=""
+                  width={32}
+                  height={32}
                   className="h-8 w-8 cursor-pointer rounded-full ring-offset-background transition-shadow hover:ring-2 hover:ring-ring hover:ring-offset-2"
                 />
               ) : (
