@@ -26,7 +26,7 @@ CitySieve runs on a Hostinger KVM 1 VPS (1 vCPU, 4 GB RAM, 50 GB NVMe) at **city
 
 | File | Purpose |
 |------|---------|
-| `Dockerfile` | Multi-stage build: deps → builder → runner (node:20-alpine) |
+| `Dockerfile` | Multi-stage build: deps → builder → runner (node:22-alpine) |
 | `.dockerignore` | Excludes node_modules, .next, .env files, dev.db, docs |
 | `docker-compose.yml` | App service on `127.0.0.1:3000`, named volume for SQLite |
 | `nginx/citysieve.conf` | Reverse proxy HTTP→3000, acme-challenge passthrough |
