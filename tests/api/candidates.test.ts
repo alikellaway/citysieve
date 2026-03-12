@@ -127,4 +127,39 @@ describe('GET /api/candidates', () => {
     expect(res.status).toBe(400);
     expect(json.error).toBe('Invalid coordinates');
   });
+
+  it('returns 400 for missing coordinates', async () => {
+    const req = new NextRequest('http://localhost:3000/api/candidates?lat=&lng=');
+    const res = await GET(req);
+    const json = await res.json();
+
+    expect(res.status).toBe(400);
+    expect(json.error).toBe('Invalid coordinates');
+  });
+
+  it('returns 500 with detail when both queries fail (e.g. database inaccessible)', async () => {
+    // Both calls throw — simulates a missing or corrupt database
+    vi.mocked(prisma.areaCentroid.findMany)
+      .mockRejectedValueOnce(new Error('SQLITE_CANTOPEN: unable to open database file'))
+      .mockRejectedValueOnce(new Error('SQLITE_CANTOPEN: unable to open database file'));
+
+    const req = new NextRequest('http://localhost:3000/api/candidates?lat=51.5&lng=-0.1&radius=5');
+    const res = await GET(req);
+    const json = await res.json();
+
+    expect(res.status).toBe(500);
+    expect(json.error).toBe('Database query failed');
+    expect(json.detail).toContain('SQLITE_CANTOPEN');
+  });
+
+  it('returns empty array when no candidates match the area', async () => {
+    vi.mocked(prisma.areaCentroid.findMany).mockResolvedValueOnce([]);
+
+    const req = new NextRequest('http://localhost:3000/api/candidates?lat=0&lng=0&radius=5');
+    const res = await GET(req);
+    const json = await res.json();
+
+    expect(res.status).toBe(200);
+    expect(json).toEqual([]);
+  });
 });

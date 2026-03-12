@@ -25,65 +25,74 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: 'Invalid coordinates' }, { status: 400 });
   }
 
-  // Find bounding box for quick SQLite filter
-  // 1 deg lat = 111km
-  const latDelta = radiusKm / 111;
-  const lngDelta = radiusKm / (111 * Math.cos(lat * (Math.PI / 180)));
-
-  const minLat = lat - latDelta;
-  const maxLat = lat + latDelta;
-  const minLng = lng - lngDelta;
-  const maxLng = lng + lngDelta;
-
-  let candidates;
   try {
-    candidates = await prisma.areaCentroid.findMany({
-      where: {
-        lat: { gte: minLat, lte: maxLat },
-        lng: { gte: minLng, lte: maxLng },
-      },
-      include: {
-        metrics: {
-          select: {
-            supermarkets: true,
-            highStreet: true,
-            pubsBars: true,
-            restaurantsCafes: true,
-            parksGreenSpaces: true,
-            gymsLeisure: true,
-            healthcare: true,
-            librariesCulture: true,
-            schools: true,
-            trainStation: true,
-            busStop: true,
-            crimeScore: true,
+    // Find bounding box for quick SQLite filter
+    // 1 deg lat = 111km
+    const latDelta = radiusKm / 111;
+    const lngDelta = radiusKm / (111 * Math.cos(lat * (Math.PI / 180)));
+
+    const minLat = lat - latDelta;
+    const maxLat = lat + latDelta;
+    const minLng = lng - lngDelta;
+    const maxLng = lng + lngDelta;
+
+    let candidates;
+    try {
+      candidates = await prisma.areaCentroid.findMany({
+        where: {
+          lat: { gte: minLat, lte: maxLat },
+          lng: { gte: minLng, lte: maxLng },
+        },
+        include: {
+          metrics: {
+            select: {
+              supermarkets: true,
+              highStreet: true,
+              pubsBars: true,
+              restaurantsCafes: true,
+              parksGreenSpaces: true,
+              gymsLeisure: true,
+              healthcare: true,
+              librariesCulture: true,
+              schools: true,
+              trainStation: true,
+              busStop: true,
+              crimeScore: true,
+            }
           }
         }
-      }
-    });
+      });
+    } catch (innerError) {
+      console.warn('Prisma error fetching candidates with metrics. Falling back to query without metrics:', innerError);
+      candidates = await prisma.areaCentroid.findMany({
+        where: {
+          lat: { gte: minLat, lte: maxLat },
+          lng: { gte: minLng, lte: maxLng },
+        },
+      });
+    }
+
+    // Filter accurately using haversine
+    const valid = candidates.filter(
+      (c) => haversineDistance(lat, lng, c.lat, c.lng) <= radiusKm
+    );
+
+    const results = valid.map((c) => ({
+      id: `outcode_${c.outcode.replace(/\s+/g, '_')}`,
+      name: `${c.name}, ${c.outcode}`,
+      outcode: c.outcode,
+      lat: c.lat,
+      lng: c.lng,
+      metrics: (c as { metrics?: unknown }).metrics || null,
+    }));
+
+    return NextResponse.json(results);
   } catch (error) {
-    console.warn('Prisma error fetching candidates with metrics (table may not exist yet). Falling back to dynamic fetch:', error);
-    candidates = await prisma.areaCentroid.findMany({
-      where: {
-        lat: { gte: minLat, lte: maxLat },
-        lng: { gte: minLng, lte: maxLng },
-      },
-    });
+    console.error('Failed to fetch candidates:', error);
+    const message = error instanceof Error ? error.message : 'Unknown database error';
+    return NextResponse.json(
+      { error: 'Database query failed', detail: message },
+      { status: 500 }
+    );
   }
-
-  // Filter accurately using haversine
-  const valid = candidates.filter(
-    (c) => haversineDistance(lat, lng, c.lat, c.lng) <= radiusKm
-  );
-
-  const results = valid.map((c) => ({
-    id: `outcode_${c.outcode.replace(/\s+/g, '_')}`,
-    name: `${c.name}, ${c.outcode}`,
-    outcode: c.outcode,
-    lat: c.lat,
-    lng: c.lng,
-    metrics: (c as { metrics?: unknown }).metrics || null,
-  }));
-
-  return NextResponse.json(results);
 }

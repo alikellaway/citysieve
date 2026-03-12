@@ -45,6 +45,7 @@ ANALYTICS_API_KEY=            # Bearer token for GET /api/admin/analytics — ge
 7. **Database sessions** — NextAuth uses database strategy, not JWT. Every session check hits SQLite.
 8. **Don't modify UI primitives** in `src/components/ui/` unless fixing a bug.
 9. **POI types and config** are in `src/lib/poi-types.ts` — not in the API route (Next.js route handlers can only export HTTP methods).
+10. **Production migrations use the `migrator` service** — the production Docker image (runner stage) does NOT contain the `prisma` CLI or `tsx`. All migration and seed commands must run via `docker compose run --rm --profile tools migrator ...`. Never use the `app` service for migrations.
 
 ## Deeper Documentation
 

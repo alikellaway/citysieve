@@ -2,6 +2,7 @@ services:
   app:
     build:
       context: .
+      target: runner
       args:
         NEXT_PUBLIC_BMAC_USERNAME: ${NEXT_PUBLIC_BMAC_USERNAME}
         NEXT_PUBLIC_AWIN_ID: ${NEXT_PUBLIC_AWIN_ID}
@@ -19,6 +20,17 @@ services:
       - .env.production
     volumes:
       - citysieve_data:/app/data
+
+  migrator:
+    build:
+      context: .
+      target: migrator
+    env_file:
+      - .env.production
+    volumes:
+      - citysieve_data:/app/data
+    profiles:
+      - tools
 
 volumes:
   citysieve_data:

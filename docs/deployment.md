@@ -28,7 +28,7 @@ CitySieve runs on a Hostinger KVM 1 VPS (1 vCPU, 4 GB RAM, 50 GB NVMe) at **city
 |------|---------|
 | `Dockerfile` | Multi-stage build: deps → builder → runner (node:22-alpine) |
 | `.dockerignore` | Excludes node_modules, .next, .env files, dev.db, docs |
-| `docker-compose.yml` | App service on `127.0.0.1:3000`, named volume for SQLite |
+| `docker-compose.yml` | App + migrator services, named volume for SQLite |
 | `nginx/citysieve.conf` | Reverse proxy HTTP→3000, acme-challenge passthrough |
 | `.env.production.example` | Template for production secrets (never commit `.env.production`) |
 | `.github/workflows/deploy.yml` | GitHub Actions CD pipeline |
@@ -86,8 +86,16 @@ Every push to `master` triggers `.github/workflows/deploy.yml`:
 1. SSH into VPS
 2. `git pull origin master`
 3. `docker compose build --no-cache`
-4. `docker compose run --rm app npx prisma migrate deploy`
-5. `docker compose up -d`
+4. `docker compose run --rm --profile tools migrator npx prisma migrate deploy`
+5. `docker compose run --rm --profile tools migrator npx tsx prisma/seed-outcodes.ts`
+6. `docker compose run --rm --profile tools migrator npx tsx prisma/seed-schools.ts`
+7. `docker compose up -d`
+
+The `migrator` service targets a separate Dockerfile stage that has all
+devDependencies (prisma CLI, tsx). The `--profile tools` flag ensures it
+only starts on-demand and never runs alongside the production app. Seed
+scripts are idempotent (delete-then-insert) so re-running on every deploy
+is safe.
 
 Monitor runs at: https://github.com/alikellaway/citysieve/actions
 
@@ -110,10 +118,12 @@ nano ~/citysieve/.env.production   # fill in real values
 # must be present during `docker compose build`, not just at container start.)
 ln -s .env.production ~/citysieve/.env
 
-# First build + migrate + start
+# First build + migrate + seed + start
 cd ~/citysieve
 docker compose build
-docker compose run --rm app npx prisma migrate deploy
+docker compose run --rm --profile tools migrator npx prisma migrate deploy
+docker compose run --rm --profile tools migrator npx tsx prisma/seed-outcodes.ts
+docker compose run --rm --profile tools migrator npx tsx prisma/seed-schools.ts
 docker compose up -d
 
 # Wire up Nginx
@@ -158,7 +168,9 @@ docker compose restart
 cd ~/citysieve
 git pull origin master
 docker compose build --no-cache
-docker compose run --rm app npx prisma migrate deploy
+docker compose run --rm --profile tools migrator npx prisma migrate deploy
+docker compose run --rm --profile tools migrator npx tsx prisma/seed-outcodes.ts
+docker compose run --rm --profile tools migrator npx tsx prisma/seed-schools.ts
 docker compose up -d
 
 # Check Nginx
